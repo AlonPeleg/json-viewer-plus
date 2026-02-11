@@ -47,7 +47,6 @@ function getWebviewContent() {
             
             .entry { border: 1px solid var(--vscode-panel-border); margin-bottom: 15px; border-radius: 4px; overflow: hidden; background: var(--vscode-editor-background); }
             
-            /* Enhanced Header */
             .header { background: var(--vscode-editor-lineHighlightBackground); padding: 4px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
             .time-tag { font-size: 10px; opacity: 0.6; font-family: monospace; white-space: nowrap; }
             .name-input { background: transparent; border: 1px solid transparent; color: var(--vscode-foreground); font-size: 11px; font-weight: bold; padding: 2px 4px; width: 150px; border-radius: 2px; }
@@ -64,10 +63,15 @@ function getWebviewContent() {
             .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow-x: auto; line-height: 1.4; }
             .json-node { margin: 0; position: relative; }
             .json-tree { padding-left: 18px; border-left: 1px solid #404040; margin-left: 6px; }
-            .toggle { cursor: pointer; width: 14px; display: inline-block; text-align: center; font-size: 9px; color: #808080; }
-            .toggle::before { content: '▼'; }
-            .collapsed > .toggle::before { content: '▶'; }
+            
+            /* --- TRIANGLE FIX --- */
+            .toggle { cursor: pointer; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; color: #808080; }
+            .toggle::before { content: '▼'; } /* Default: Pointing DOWN when open */
+            .collapsed > .header-line > .toggle::before { content: '▶'; } /* Pointing RIGHT when collapsed */
+            
             .collapsed > .json-tree, .collapsed > .footer { display: none; }
+            .collapsed > .header-line::after { content: ' ... }'; color: #808080; }
+            .collapsed.is-array > .header-line::after { content: ' ... ]'; }
 
             .key { color: #9cdcfe; }
             .string { color: #ce9178; }
@@ -131,6 +135,7 @@ function getWebviewContent() {
                 const isObj = data !== null && typeof data === 'object';
                 const isArray = Array.isArray(data);
                 const line = document.createElement('div');
+                line.className = 'header-line';
 
                 if (isObj) {
                     node.classList.add(isArray ? 'is-array' : 'is-object');

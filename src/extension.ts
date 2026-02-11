@@ -3,26 +3,21 @@ import * as vscode from 'vscode';
 let panel: vscode.WebviewPanel | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-    // 1. Create and show Status Bar Item
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.command = 'json-viewer-plus.open';
     statusBarItem.text = `$(json) JSON Viewer`;
     statusBarItem.tooltip = 'Click to open JSON Viewer';
     statusBarItem.show();
 
-    // 2. Register Open Command
     let disposable = vscode.commands.registerCommand('json-viewer-plus.open', () => {
         if (panel) {
             panel.reveal(vscode.ViewColumn.One);
         } else {
             panel = vscode.window.createWebviewPanel(
                 'jsonViewer',
-                'JSON Viewer',
+                'JSON Viewer Plus',
                 vscode.ViewColumn.One,
-                { 
-                    enableScripts: true, 
-                    retainContextWhenHidden: true 
-                }
+                { enableScripts: true, retainContextWhenHidden: true }
             );
 
             panel.onDidDispose(() => { panel = undefined; }, null, context.subscriptions);
@@ -48,22 +43,28 @@ function getWebviewContent() {
             body { font-family: var(--vscode-editor-font-family); color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); padding: 15px; }
             .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
             .btn { border: none; padding: 4px 10px; cursor: pointer; border-radius: 2px; font-size: 12px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
-            .input-box { width: 100%; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 8px; margin-bottom: 15px; font-family: monospace; border-radius: 4px; box-sizing: border-box; outline: none; }
-            .input-box:focus { border-color: var(--vscode-focusBorder); }
+            .input-box { width: 100%; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 10px; margin-bottom: 15px; font-family: monospace; border-radius: 4px; box-sizing: border-box; outline: none; }
             
             .entry { border: 1px solid var(--vscode-panel-border); margin-bottom: 15px; border-radius: 4px; overflow: hidden; background: var(--vscode-editor-background); }
-            .header { background: var(--vscode-editor-lineHighlightBackground); padding: 6px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--vscode-panel-border); }
             
-            .search-container { flex-grow: 1; display: flex; align-items: center; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 2px; }
-            .search-inline { width: 100%; background: transparent; color: var(--vscode-input-foreground); border: none; font-size: 12px; padding: 3px 8px; outline: none; }
-            .search-counter { font-size: 11px; padding: 0 8px; opacity: 0.7; font-family: monospace; white-space: nowrap; }
+            /* Enhanced Header */
+            .header { background: var(--vscode-editor-lineHighlightBackground); padding: 4px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
+            .time-tag { font-size: 10px; opacity: 0.6; font-family: monospace; white-space: nowrap; }
+            .name-input { background: transparent; border: 1px solid transparent; color: var(--vscode-foreground); font-size: 11px; font-weight: bold; padding: 2px 4px; width: 150px; border-radius: 2px; }
+            .name-input:hover { border-color: var(--vscode-input-border); }
+            .name-input:focus { background: var(--vscode-input-background); border-color: var(--vscode-focusBorder); outline: none; }
 
-            .btn-delete { color: var(--vscode-errorForeground); cursor: pointer; font-weight: bold; font-size: 18px; line-height: 1; padding: 0 5px; opacity: 0.6; }
-            .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow-x: auto; line-height: 1.5; }
-            
+            .search-container { display: flex; align-items: center; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 2px; margin-left: auto; width: 180px; }
+            .search-inline { width: 100%; background: transparent; color: var(--vscode-input-foreground); border: none; font-size: 11px; padding: 2px 6px; outline: none; }
+            .search-counter { font-size: 10px; padding: 0 5px; opacity: 0.7; font-family: monospace; }
+
+            .btn-delete { color: var(--vscode-errorForeground); cursor: pointer; font-weight: bold; font-size: 16px; line-height: 1; padding: 0 4px; opacity: 0.6; }
+            .btn-delete:hover { opacity: 1; }
+
+            .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow-x: auto; line-height: 1.4; }
             .json-node { margin: 0; position: relative; }
             .json-tree { padding-left: 18px; border-left: 1px solid #404040; margin-left: 6px; }
-            .toggle { cursor: pointer; width: 14px; display: inline-block; text-align: center; font-size: 10px; color: #808080; }
+            .toggle { cursor: pointer; width: 14px; display: inline-block; text-align: center; font-size: 9px; color: #808080; }
             .toggle::before { content: '▼'; }
             .collapsed > .toggle::before { content: '▶'; }
             .collapsed > .json-tree, .collapsed > .footer { display: none; }
@@ -85,7 +86,7 @@ function getWebviewContent() {
                 <button class="btn" style="background: var(--vscode-button-secondaryBackground);" onclick="document.getElementById('container').innerHTML=''">Clear All</button>
             </div>
         </div>
-        <input type="text" class="input-box" id="jsonInput" placeholder="Paste JSON and press Enter..." autofocus />
+        <textarea class="input-box" id="jsonInput" rows="3" placeholder="Paste JSON here and press Enter (Shift+Enter for new line)..." autofocus></textarea>
         <div id="container"></div>
 
         <script>
@@ -94,7 +95,8 @@ function getWebviewContent() {
             let currentMatches = [];
 
             document.getElementById('jsonInput').addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && e.target.value.trim()) {
+                if (e.key === 'Enter' && !e.shiftKey && e.target.value.trim()) {
+                    e.preventDefault();
                     try {
                         const obj = JSON.parse(e.target.value);
                         addJsonEntry(obj);
@@ -106,13 +108,17 @@ function getWebviewContent() {
             function addJsonEntry(obj) {
                 const entry = document.createElement('div');
                 entry.className = 'entry';
+                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                
                 entry.innerHTML = \`
                     <div class="header">
+                        <span class="time-tag">\${time}</span>
+                        <input type="text" class="name-input" placeholder="Name this JSON...">
                         <div class="search-container">
                             <input type="text" class="search-inline" placeholder="Find..." oninput="initSearch(this)" onkeydown="navigateSearch(event, this)">
                             <span class="search-counter">0/0</span>
                         </div>
-                        <div class="btn-delete" onclick="this.closest('.entry').remove()">×</div>
+                        <div class="btn-delete" title="Remove" onclick="this.closest('.entry').remove()">×</div>
                     </div>
                     <div class="content"></div>\`;
                 entry.querySelector('.content').appendChild(renderTree(obj));
@@ -175,7 +181,6 @@ function getWebviewContent() {
                 const content = container.querySelector('.content');
                 const counter = container.querySelector('.search-counter');
                 
-                // Clear old matches and NORMALIZE to fix the "one letter" issue
                 content.querySelectorAll('.match').forEach(m => m.replaceWith(document.createTextNode(m.textContent)));
                 content.normalize(); 
                 

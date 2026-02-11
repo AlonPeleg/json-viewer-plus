@@ -6,6 +6,8 @@ export function activate(context: vscode.ExtensionContext) {
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.command = 'json-viewer-plus.open';
     statusBarItem.text = `$(json) JSON Viewer`;
+    statusBarItem.color = '#FFFFFF';
+    statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
     statusBarItem.tooltip = 'Click to open JSON Viewer';
     statusBarItem.show();
 
@@ -15,7 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
         } else {
             panel = vscode.window.createWebviewPanel(
                 'jsonViewer',
-                'JSON Viewer Plus',
+                'JSON Viewer',
                 vscode.ViewColumn.One,
                 { enableScripts: true, retainContextWhenHidden: true }
             );
@@ -84,7 +86,7 @@ function getWebviewContent() {
     </head>
     <body>
         <div class="toolbar">
-            <h3 style="margin:0">JSON Viewer Plus</h3>
+            <h3 style="margin:0">JSON Viewer</h3>
             <div style="display:flex; gap:8px;">
                 <button class="btn" onclick="vscode.postMessage({command:'pinTab'})">Keep Open</button>
                 <button class="btn" style="background: var(--vscode-button-secondaryBackground);" onclick="document.getElementById('container').innerHTML=''">Clear All</button>

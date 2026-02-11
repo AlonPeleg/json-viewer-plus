@@ -1,0 +1,42 @@
+{
+  "name": "json-viewer-plus",
+  "displayName": "json-viewer-plus",
+  "description": "a json viewer",
+  "publisher": "alonpe",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+"contributes": {
+    "commands": [
+      {
+        "command": "json-viewer-plus.open",
+        "title": "Open JSON Viewer",
+        "category": "JSON"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.109.0",
+    "@types/node": "22.x",
+    "typescript": "^5.9.3"
+
+  },
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alonpe/json-viewer-plus"
+}
+}

@@ -38,7 +38,8 @@ export function activate(context: vscode.ExtensionContext) {
                         const now = new Date();
                         const dateStr = now.toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
                         const timeStr = now.getHours().toString().padStart(2, '0') +
-                            now.getMinutes().toString().padStart(2, '0');      // HHMM
+                            now.getMinutes().toString().padStart(2, '0')+
+                            now.getSeconds().toString().padStart(2, '0');      // HHMMSS
                         fileName = `JSON_${dateStr}_${timeStr}`;
                     }
 

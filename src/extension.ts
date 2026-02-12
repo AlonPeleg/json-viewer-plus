@@ -114,7 +114,6 @@ function getWebviewContent() {
             .btn-delete { color: var(--vscode-errorForeground); cursor: pointer; font-weight: bold; font-size: 16px; line-height: 1; padding: 0 4px; opacity: 0.6; }
             .btn-delete:hover { opacity: 1; }
             
-            /* --- STICKY BREADCRUMB BAR --- */
             .breadcrumb-bar { 
                 position: sticky;
                 top: 0;
@@ -131,10 +130,6 @@ function getWebviewContent() {
                 flex-shrink: 0;
             }
             .breadcrumb-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .btn-copy-path { cursor: pointer; opacity: 0.6; margin-left: 8px; flex-shrink: 0; }
-            .btn-copy-path:hover { opacity: 1; }
-            .btn-copy-path svg { width: 12px; height: 12px; fill: var(--vscode-textLink-foreground); }
-            /* ----------------------- */
 
             .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow: auto; line-height: 1.4; transition: background-color 0.2s; flex-grow: 1; }
             
@@ -158,37 +153,25 @@ function getWebviewContent() {
             .boolean, .null { color: #569cd6; }
             .match { background-color: rgba(151, 121, 0, 0.4); border-radius: 1px; }
             .match.current { background-color: #f7d75c; color: #000; border: 1px solid #ffaa00; font-weight: bold; }
+            
             #custom-context-menu {
-            position: fixed;
-            z-index: 10000;
-            background: var(--vscode-menu-background);
-            color: var(--vscode-menu-foreground);
-            border: 1px solid var(--vscode-menu-border);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-            border-radius: 5px;
-            padding: 4px 0;
-            display: none;
-            min-width: 160px;
-            font-size: 12px;
-            font-family: var(--vscode-font-family);
-            user-select: none;
-        }
-        .ctx-item {
-            padding: 6px 12px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-        }
-        .ctx-item:hover {
-            background: var(--vscode-menu-selectionBackground);
-            color: var(--vscode-menu-selectionForeground);
-        }
-        .ctx-divider {
-            height: 1px;
-            background: var(--vscode-menu-separatorBackground);
-            margin: 4px 0;
-        }
-        .ctx-shortcut { opacity: 0.5; font-size: 11px; margin-left: 20px; }
+                position: fixed;
+                z-index: 10000;
+                background: var(--vscode-menu-background);
+                color: var(--vscode-menu-foreground);
+                border: 1px solid var(--vscode-menu-border);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+                border-radius: 5px;
+                padding: 4px 0;
+                display: none;
+                min-width: 160px;
+                font-size: 12px;
+                user-select: none;
+            }
+            .ctx-item { padding: 6px 12px; cursor: pointer; display: flex; justify-content: space-between; }
+            .ctx-item:hover { background: var(--vscode-menu-selectionBackground); color: var(--vscode-menu-selectionForeground); }
+            .ctx-divider { height: 1px; background: var(--vscode-menu-separatorBackground); margin: 4px 0; }
+            .ctx-shortcut { opacity: 0.5; font-size: 11px; margin-left: 20px; }
         </style>
     </head>
     <body>
@@ -202,13 +185,12 @@ function getWebviewContent() {
         <div class="toolbar">
             <h3 style="margin:0">JSON Viewer</h3>
             <div class="btn-group">
-                <button class="btn-global-icon" title="Collapse All Entries" onclick="setAllCollapse(true)">
+                <button class="btn-global-icon" title="Collapse All" onclick="setAllCollapse(true)">
                     <svg viewBox="0 0 16 16"><path d="M9 9H5V5h4v4zm5-7H2v12h12V2zM3 13V3h10v10H3z"/></svg>
                 </button>
-                <button class="btn-global-icon" title="Expand All Entries" onclick="setAllCollapse(false)">
+                <button class="btn-global-icon" title="Expand All" onclick="setAllCollapse(false)">
                     <svg viewBox="0 0 16 16"><path d="M11 11H5V5h6v6zm3-9H2v12h12V2zM3 13V3h10v10H3z"/></svg>
                 </button>
-                
                 <button class="btn" onclick="vscode.postMessage({command:'pinTab'})">Keep Open</button>
                 <button class="btn btn-secondary" onclick="document.getElementById('container').innerHTML=''">Clear All</button>
             </div>
@@ -218,14 +200,12 @@ function getWebviewContent() {
 
         <script>
             const vscode = acquireVsCodeApi();
-            
             const saveIconSvg = \`<svg viewBox="0 0 16 16"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zM4 1h8v4H4V1zm10 13H2V2h1v4h10V2h1v12zM5 10h6v3H5v-3z"/></svg>\`;
             const copyIconSvg = \`<svg viewBox="0 0 16 16"><path d="M4 4V1h11v11h-3v3H1V4h3zm10-2H5v9h9V2zM2 14h9V5H2v9z"/></svg>\`;
 
             function setAllCollapse(collapsed) {
                 document.querySelectorAll('.entry').forEach(entry => {
-                    if (collapsed) entry.classList.add('collapsed-entry');
-                    else entry.classList.remove('collapsed-entry');
+                    collapsed ? entry.classList.add('collapsed-entry') : entry.classList.remove('collapsed-entry');
                 });
             }
 
@@ -250,38 +230,24 @@ function getWebviewContent() {
                         <span class="master-toggle" onclick="this.closest('.entry').classList.toggle('collapsed-entry')">▼</span>
                         <span class="time-tag">\${time}</span>
                         <input type="text" class="name-input" placeholder="Name this JSON...">
-                        
                         <div class="actions">
                             <div class="btn-icon btn-copy" title="Copy JSON">\${copyIconSvg}</div>
-                            <div class="btn-icon btn-save" title="Save JSON to PC">\${saveIconSvg}</div>
+                            <div class="btn-icon btn-save" title="Save to PC">\${saveIconSvg}</div>
                         </div>
-
                         <div class="search-container">
                             <input type="text" class="search-inline" placeholder="Find..." oninput="initSearch(this)" onkeydown="navigateSearch(event, this)">
                             <span class="search-counter">0/0</span>
                         </div>
                         <div class="btn-delete" title="Remove" onclick="this.closest('.entry').remove()">×</div>
                     </div>
-                    <div class="breadcrumb-bar">
-                        <span class="breadcrumb-text">root</span>
-                    </div>
+                    <div class="breadcrumb-bar"><span class="breadcrumb-text">root</span></div>
                     <div class="content"></div>\`;
 
                 entry.querySelector('.btn-copy').onclick = function() {
-                    const jsonString = JSON.stringify(obj, null, 4);
-                    navigator.clipboard.writeText(jsonString).then(() => {
-                        const originalSvg = this.innerHTML;
-                        this.innerHTML = '<span style="color:#89d185; font-size:11px; font-weight:bold;">✓</span>';
+                    navigator.clipboard.writeText(JSON.stringify(obj, null, 4)).then(() => {
                         const contentBox = entry.querySelector('.content');
-                        contentBox.classList.remove('flash-active');
-                        void contentBox.offsetWidth; 
                         contentBox.classList.add('flash-active');
-                        contentBox.onanimationend = () => {
-                            contentBox.classList.remove('flash-active');
-                        };
-                        setTimeout(() => { 
-                            this.innerHTML = originalSvg;
-                        }, 1000);
+                        setTimeout(() => contentBox.classList.remove('flash-active'), 600);
                     });
                 };
 
@@ -294,15 +260,6 @@ function getWebviewContent() {
                 document.getElementById('container').prepend(entry);
             }
 
-            function copyBreadcrumb(btn) {
-                const path = btn.previousElementSibling.textContent;
-                navigator.clipboard.writeText(path).then(() => {
-                    const original = btn.innerHTML;
-                    btn.innerHTML = '<span style="color:#89d185; font-weight:bold;">✓</span>';
-                    setTimeout(() => btn.innerHTML = original, 1000);
-                });
-            }
-
             function renderTree(data, key = null, path = '') {
                 const node = document.createElement('div');
                 node.className = 'json-node';
@@ -312,17 +269,14 @@ function getWebviewContent() {
                 line.className = 'header-line';
 
                 line.oncontextmenu = (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+                    e.preventDefault(); e.stopPropagation();
                     showMenu(e, path);
                 };
 
                 line.onmouseenter = (e) => {
                     e.stopPropagation();
-                    const entry = line.closest('.entry');
-                    if (entry) {
-                        entry.querySelector('.breadcrumb-text').textContent = path;
-                    }
+                    const b = line.closest('.entry').querySelector('.breadcrumb-text');
+                    if (b) b.textContent = path;
                 };
 
                 if (isObj) {
@@ -336,11 +290,13 @@ function getWebviewContent() {
                     s.style.display = 'inline-block'; s.style.width = '14px';
                     line.appendChild(s);
                 }
+
                 if (key !== null) {
                     const k = document.createElement('span');
                     k.className = 'key'; k.textContent = '"' + key + '": ';
                     line.appendChild(k);
                 }
+
                 if (isObj) {
                     line.append(isArray ? '[' : '{');
                     node.appendChild(line);
@@ -371,24 +327,27 @@ function getWebviewContent() {
                 const container = input.closest('.entry');
                 const content = container.querySelector('.content');
                 const counter = container.querySelector('.search-counter');
+                
                 content.querySelectorAll('.match').forEach(m => m.replaceWith(document.createTextNode(m.textContent)));
                 content.normalize(); 
                 currentMatches = [];
                 activeMatchIndex = -1;
+
                 if (!query) { counter.textContent = "0/0"; return; }
+
                 const walk = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, null, false);
                 let n, nodes = [];
                 while(n = walk.nextNode()) nodes.push(n);
+
                 nodes.forEach(node => {
                     let val = node.nodeValue;
                     let lowerVal = val.toLowerCase();
-                    let startPos = 0;
                     let index;
+                    let startPos = 0;
                     while ((index = lowerVal.indexOf(query, startPos)) !== -1) {
-                        const matchText = val.substring(index, index + query.length);
                         const span = document.createElement('span');
                         span.className = 'match';
-                        span.textContent = matchText;
+                        span.textContent = val.substring(index, index + query.length);
                         const remainingText = node.splitText(index);
                         remainingText.nodeValue = remainingText.nodeValue.substring(query.length);
                         node.parentNode.insertBefore(span, remainingText);
@@ -396,15 +355,13 @@ function getWebviewContent() {
                         node = remainingText;
                         val = node.nodeValue;
                         lowerVal = val.toLowerCase();
-                        startPos = 0;
                     }
                 });
+
                 if (currentMatches.length > 0) {
                     activeMatchIndex = 0;
                     updateMatchHighlight(counter);
-                } else {
-                    counter.textContent = "0/0";
-                }
+                } else { counter.textContent = "0/0"; }
             }
 
             function navigateSearch(e, input) {
@@ -419,58 +376,33 @@ function getWebviewContent() {
                 const current = currentMatches[activeMatchIndex];
                 if (!current) return;
                 current.classList.add('current');
-                const masterEntry = current.closest('.entry');
-                if (masterEntry) masterEntry.classList.remove('collapsed-entry');
+                
                 let p = current.closest('.json-node.collapsed');
                 while(p) { p.classList.remove('collapsed'); p = p.parentElement.closest('.json-node.collapsed'); }
+                
                 current.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 counter.textContent = (activeMatchIndex + 1) + "/" + currentMatches.length;
             }
-            let lastRightClickPath = "";
 
+            let lastRightClickPath = "";
             function showMenu(e, path) {
                 const menu = document.getElementById('custom-context-menu');
                 lastRightClickPath = path;
-                
-                // Reset display so we can calculate height
                 menu.style.display = 'block';
-                menu.style.visibility = 'hidden';
-
-                // Calculate position
-                let left = e.pageX;
+                menu.style.left = e.pageX + 'px';
                 let top = e.pageY;
-
-                // Flip upward if near bottom
-                const menuHeight = menu.offsetHeight;
-                const windowHeight = window.innerHeight;
-
-                if (top + menuHeight > windowHeight) {
-                    top = top - menuHeight;
-                }
-
-                // Apply positions
-                menu.style.left = left + 'px';
+                if (top + menu.offsetHeight > window.innerHeight) top -= menu.offsetHeight;
                 menu.style.top = top + 'px';
-                menu.style.visibility = 'visible';
 
-                const hide = () => { 
-                    menu.style.display = 'none'; 
-                    document.removeEventListener('click', hide); 
-                };
+                const hide = () => { menu.style.display = 'none'; document.removeEventListener('click', hide); };
                 setTimeout(() => document.addEventListener('click', hide), 0);
             }
 
-            // Logic for the Copy Path button
             document.getElementById('ctx-copy-path').onclick = () => {
                 navigator.clipboard.writeText(lastRightClickPath);
-                document.getElementById('custom-context-menu').style.display = 'none';
             };
 
-            // Logic to keep Cut/Copy/Paste working in a custom menu
-            function execCommand(cmd) {
-                document.execCommand(cmd);
-                document.getElementById('custom-context-menu').style.display = 'none';
-            }
+            function execCommand(cmd) { document.execCommand(cmd); }
         </script>
     </body>
     </html>`;

@@ -50,6 +50,12 @@ function getWebviewContent() {
             .entry { border: 1px solid var(--vscode-panel-border); margin-bottom: 15px; border-radius: 4px; overflow: hidden; background: var(--vscode-editor-background); }
             
             .header { background: var(--vscode-editor-lineHighlightBackground); padding: 4px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
+            
+            /* Master Toggle Style */
+            .master-toggle { cursor: pointer; font-size: 10px; width: 14px; display: inline-flex; justify-content: center; opacity: 0.7; transition: transform 0.1s; user-select: none; }
+            .entry.collapsed-entry .master-toggle { transform: rotate(-90deg); }
+            .entry.collapsed-entry .content { display: none; }
+
             .time-tag { font-size: 10px; opacity: 0.6; font-family: monospace; white-space: nowrap; }
             .name-input { background: transparent; border: 1px solid transparent; color: var(--vscode-foreground); font-size: 11px; font-weight: bold; padding: 2px 4px; width: 150px; border-radius: 2px; }
             .name-input:hover { border-color: var(--vscode-input-border); }
@@ -66,10 +72,9 @@ function getWebviewContent() {
             .json-node { margin: 0; position: relative; }
             .json-tree { padding-left: 18px; border-left: 1px solid #404040; margin-left: 6px; }
             
-            /* --- TRIANGLE FIX --- */
             .toggle { cursor: pointer; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; color: #808080; }
-            .toggle::before { content: '▼'; } /* Default: Pointing DOWN when open */
-            .collapsed > .header-line > .toggle::before { content: '▶'; } /* Pointing RIGHT when collapsed */
+            .toggle::before { content: '▼'; }
+            .collapsed > .header-line > .toggle::before { content: '▶'; }
             
             .collapsed > .json-tree, .collapsed > .footer { display: none; }
             .collapsed > .header-line::after { content: ' ... }'; color: #808080; }
@@ -118,6 +123,7 @@ function getWebviewContent() {
                 
                 entry.innerHTML = \`
                     <div class="header">
+                        <span class="master-toggle" title="Toggle Block" onclick="this.closest('.entry').classList.toggle('collapsed-entry')">▼</span>
                         <span class="time-tag">\${time}</span>
                         <input type="text" class="name-input" placeholder="Name this JSON...">
                         <div class="search-container">
@@ -245,6 +251,11 @@ function getWebviewContent() {
                 const current = currentMatches[activeMatchIndex];
                 current.classList.add('current');
                 
+                // Expand Master Block if it was collapsed
+                const masterEntry = current.closest('.entry');
+                if (masterEntry) masterEntry.classList.remove('collapsed-entry');
+
+                // Expand internal JSON nodes
                 let p = current.closest('.json-node.collapsed');
                 while(p) { p.classList.remove('collapsed'); p = p.parentElement.closest('.json-node.collapsed'); }
 

@@ -158,9 +158,47 @@ function getWebviewContent() {
             .boolean, .null { color: #569cd6; }
             .match { background-color: rgba(151, 121, 0, 0.4); border-radius: 1px; }
             .match.current { background-color: #f7d75c; color: #000; border: 1px solid #ffaa00; font-weight: bold; }
+            #custom-context-menu {
+            position: fixed;
+            z-index: 10000;
+            background: var(--vscode-menu-background);
+            color: var(--vscode-menu-foreground);
+            border: 1px solid var(--vscode-menu-border);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            border-radius: 5px;
+            padding: 4px 0;
+            display: none;
+            min-width: 160px;
+            font-size: 12px;
+            font-family: var(--vscode-font-family);
+            user-select: none;
+        }
+        .ctx-item {
+            padding: 6px 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+        }
+        .ctx-item:hover {
+            background: var(--vscode-menu-selectionBackground);
+            color: var(--vscode-menu-selectionForeground);
+        }
+        .ctx-divider {
+            height: 1px;
+            background: var(--vscode-menu-separatorBackground);
+            margin: 4px 0;
+        }
+        .ctx-shortcut { opacity: 0.5; font-size: 11px; margin-left: 20px; }
         </style>
     </head>
     <body>
+        <div id="custom-context-menu">
+            <div class="ctx-item" onclick="execCommand('cut')">Cut <span class="ctx-shortcut">Ctrl+X</span></div>
+            <div class="ctx-item" onclick="execCommand('copy')">Copy <span class="ctx-shortcut">Ctrl+C</span></div>
+            <div class="ctx-item" onclick="execCommand('paste')">Paste <span class="ctx-shortcut">Ctrl+V</span></div>
+            <div class="ctx-divider"></div>
+            <div class="ctx-item" id="ctx-copy-path">Copy Path</div>
+        </div>
         <div class="toolbar">
             <h3 style="margin:0">JSON Viewer</h3>
             <div class="btn-group">
@@ -274,6 +312,12 @@ function getWebviewContent() {
                 const line = document.createElement('div');
                 line.className = 'header-line';
 
+                line.oncontextmenu = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showMenu(e, path);
+                };
+
                 line.onmouseenter = (e) => {
                     e.stopPropagation();
                     const entry = line.closest('.entry');
@@ -382,6 +426,31 @@ function getWebviewContent() {
                 while(p) { p.classList.remove('collapsed'); p = p.parentElement.closest('.json-node.collapsed'); }
                 current.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 counter.textContent = (activeMatchIndex + 1) + "/" + currentMatches.length;
+            }
+            let lastRightClickPath = "";
+
+            function showMenu(e, path) {
+                const menu = document.getElementById('custom-context-menu');
+                lastRightClickPath = path;
+                
+                menu.style.display = 'block';
+                menu.style.left = e.pageX + 'px';
+                menu.style.top = e.pageY + 'px';
+
+                const hide = () => { menu.style.display = 'none'; document.removeEventListener('click', hide); };
+                setTimeout(() => document.addEventListener('click', hide), 0);
+            }
+
+            // Logic for the Copy Path button
+            document.getElementById('ctx-copy-path').onclick = () => {
+                navigator.clipboard.writeText(lastRightClickPath);
+                document.getElementById('custom-context-menu').style.display = 'none';
+            };
+
+            // Logic to keep Cut/Copy/Paste working in a custom menu
+            function execCommand(cmd) {
+                document.execCommand(cmd);
+                document.getElementById('custom-context-menu').style.display = 'none';
             }
         </script>
     </body>

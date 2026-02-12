@@ -90,12 +90,12 @@ function getWebviewContent() {
             .btn-global-icon svg { width: 16px; height: 16px; fill: var(--vscode-foreground); }
 
             .input-box { width: 100%; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 10px; margin-bottom: 15px; font-family: monospace; border-radius: 4px; box-sizing: border-box; outline: none; }
-            .entry { border: 1px solid var(--vscode-panel-border); margin-bottom: 15px; border-radius: 4px; overflow: hidden; background: var(--vscode-editor-background); }
-            .header { background: var(--vscode-editor-lineHighlightBackground); padding: 4px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
+            .entry { border: 1px solid var(--vscode-panel-border); margin-bottom: 15px; border-radius: 4px; overflow: hidden; background: var(--vscode-editor-background); display: flex; flex-direction: column; max-height: 80vh; }
+            .header { background: var(--vscode-editor-lineHighlightBackground); padding: 4px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--vscode-panel-border); flex-shrink: 0; }
             
             .master-toggle { cursor: pointer; font-size: 10px; width: 14px; display: inline-flex; justify-content: center; opacity: 0.7; user-select: none; }
             .entry.collapsed-entry .master-toggle { transform: rotate(-90deg); }
-            .entry.collapsed-entry .content { display: none; }
+            .entry.collapsed-entry .content, .entry.collapsed-entry .breadcrumb-bar { display: none; }
             
             .time-tag { font-size: 10px; opacity: 0.6; font-family: monospace; white-space: nowrap; }
             .name-input { background: transparent; border: 1px solid transparent; color: var(--vscode-foreground); font-size: 11px; font-weight: bold; padding: 2px 4px; width: 150px; border-radius: 2px; }
@@ -114,22 +114,29 @@ function getWebviewContent() {
             .btn-delete { color: var(--vscode-errorForeground); cursor: pointer; font-weight: bold; font-size: 16px; line-height: 1; padding: 0 4px; opacity: 0.6; }
             .btn-delete:hover { opacity: 1; }
             
-            /* --- BREADCRUMB BAR --- */
+            /* --- STICKY BREADCRUMB BAR --- */
             .breadcrumb-bar { 
-                background: var(--vscode-editorWidget-background); 
+                position: sticky;
+                top: 0;
+                z-index: 20;
+                background: var(--vscode-editor-background);
                 border-bottom: 1px solid var(--vscode-panel-border); 
                 padding: 4px 12px; 
                 font-size: 10px; 
                 font-family: monospace; 
                 color: var(--vscode-textLink-foreground);
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                min-height: 1.2em;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-shrink: 0;
             }
+            .breadcrumb-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .btn-copy-path { cursor: pointer; opacity: 0.6; margin-left: 8px; flex-shrink: 0; }
+            .btn-copy-path:hover { opacity: 1; }
+            .btn-copy-path svg { width: 12px; height: 12px; fill: var(--vscode-textLink-foreground); }
             /* ----------------------- */
 
-            .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow-x: auto; line-height: 1.4; transition: background-color 0.2s; }
+            .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow: auto; line-height: 1.4; transition: background-color 0.2s; flex-grow: 1; }
             
             @keyframes flash-pulse {
                 0% { background-color: rgba(55, 148, 239, 0.25); }
@@ -217,7 +224,10 @@ function getWebviewContent() {
                         </div>
                         <div class="btn-delete" title="Remove" onclick="this.closest('.entry').remove()">×</div>
                     </div>
-                    <div class="breadcrumb-bar">root</div>
+                    <div class="breadcrumb-bar">
+                        <span class="breadcrumb-text">root</span>
+                        <div class="btn-copy-path" title="Copy Path" onclick="copyBreadcrumb(this)">\${copyIconSvg}</div>
+                    </div>
                     <div class="content"></div>\`;
 
                 entry.querySelector('.btn-copy').onclick = function() {
@@ -247,6 +257,15 @@ function getWebviewContent() {
                 document.getElementById('container').prepend(entry);
             }
 
+            function copyBreadcrumb(btn) {
+                const path = btn.previousElementSibling.textContent;
+                navigator.clipboard.writeText(path).then(() => {
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '<span style="color:#89d185; font-weight:bold;">✓</span>';
+                    setTimeout(() => btn.innerHTML = original, 1000);
+                });
+            }
+
             function renderTree(data, key = null, path = '') {
                 const node = document.createElement('div');
                 node.className = 'json-node';
@@ -255,12 +274,11 @@ function getWebviewContent() {
                 const line = document.createElement('div');
                 line.className = 'header-line';
 
-                // --- BREADCRUMB HOVER LOGIC ---
                 line.onmouseenter = (e) => {
                     e.stopPropagation();
                     const entry = line.closest('.entry');
                     if (entry) {
-                        entry.querySelector('.breadcrumb-bar').textContent = path;
+                        entry.querySelector('.breadcrumb-text').textContent = path;
                     }
                 };
 

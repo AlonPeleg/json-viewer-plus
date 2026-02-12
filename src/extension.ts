@@ -5,10 +5,10 @@ let panel: vscode.WebviewPanel | undefined;
 export function activate(context: vscode.ExtensionContext) {
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.command = 'json-viewer-plus.open';
-    statusBarItem.text = `$(json) JSON Viewer`;
+    statusBarItem.text = `$(json) JSON/XML Viewer`;
     statusBarItem.color = '#FFFFFF';
     statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-    statusBarItem.tooltip = 'Click to open JSON Viewer';
+    statusBarItem.tooltip = 'Click to open JSON/XML Viewer';
     statusBarItem.show();
 
     let disposable = vscode.commands.registerCommand('json-viewer-plus.open', () => {
@@ -17,7 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
         } else {
             panel = vscode.window.createWebviewPanel(
                 'jsonViewer',
-                'JSON Viewer',
+                'JSON/XML Viewer',
                 vscode.ViewColumn.One,
                 { enableScripts: true, retainContextWhenHidden: true }
             );
@@ -30,29 +30,31 @@ export function activate(context: vscode.ExtensionContext) {
                     vscode.commands.executeCommand('workbench.action.keepEditor');
                 }
 
-                if (message.command === 'saveJson') {
-                    let { data, fileName } = message;
+                if (message.command === 'saveFile') {
+                    let { data, fileName, extension } = message;
 
-                    if (!fileName || fileName.trim() === 'data') {
+                    if (!fileName || fileName.trim() === '') {
                         const now = new Date();
-                        const dateStr = now.toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
+                        const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
                         const timeStr = now.getHours().toString().padStart(2, '0') +
-                            now.getMinutes().toString().padStart(2, '0')+
-                            now.getSeconds().toString().padStart(2, '0');      // HHMMSS
-                        fileName = `JSON_${dateStr}_${timeStr}`;
+                            now.getMinutes().toString().padStart(2, '0') +
+                            now.getSeconds().toString().padStart(2, '0');
+                        fileName = `Export_${dateStr}_${timeStr}`;
                     }
 
+                    const path = require('path');
                     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-                    const desktopPath = vscode.Uri.file(require('path').join(homeDir, 'Desktop', fileName + '.json'));
+                    const defaultPath = vscode.Uri.file(path.join(homeDir, 'Desktop', fileName + '.' + extension));
 
                     const uri = await vscode.window.showSaveDialog({
-                        defaultUri: desktopPath,
-                        filters: { 'JSON files': ['json'] }
+                        defaultUri: defaultPath,
+                        filters: { 'Files': [extension] }
                     });
 
                     if (uri) {
-                        await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(data, null, 4)));
-                        vscode.window.showInformationMessage(`Saved: ${fileName}.json`);
+                        const content = extension === 'json' ? JSON.stringify(data, null, 4) : data;
+                        await vscode.workspace.fs.writeFile(uri, Buffer.from(content));
+                        vscode.window.showInformationMessage(`Saved: ${fileName}.${extension}`);
                     }
                 }
             });
@@ -70,75 +72,39 @@ function getWebviewContent() {
         <style>
             body { font-family: var(--vscode-editor-font-family); color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); padding: 15px; }
             .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-            
             .btn-group { display: flex; gap: 6px; align-items: center; }
             .btn { border: none; padding: 4px 10px; cursor: pointer; border-radius: 2px; font-size: 12px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
             .btn-secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
             .btn:hover { filter: brightness(1.2); }
-
-            .btn-global-icon { 
-                background: transparent; 
-                border: none; 
-                cursor: pointer; 
-                padding: 4px; 
-                display: flex; 
-                align-items: center; 
-                border-radius: 3px;
-                opacity: 0.8;
-            }
+            .btn-global-icon { background: transparent; border: none; cursor: pointer; padding: 4px; display: flex; align-items: center; border-radius: 3px; opacity: 0.8; }
             .btn-global-icon:hover { background: var(--vscode-toolbar-hoverBackground); opacity: 1; }
             .btn-global-icon svg { width: 16px; height: 16px; fill: var(--vscode-foreground); }
-
             .input-box { width: 100%; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 10px; margin-bottom: 15px; font-family: monospace; border-radius: 4px; box-sizing: border-box; outline: none; }
             .entry { border: 1px solid var(--vscode-panel-border); margin-bottom: 15px; border-radius: 4px; overflow: hidden; background: var(--vscode-editor-background); display: flex; flex-direction: column; max-height: 80vh; }
             .header { background: var(--vscode-editor-lineHighlightBackground); padding: 4px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--vscode-panel-border); flex-shrink: 0; }
-            
             .master-toggle { cursor: pointer; font-size: 10px; width: 14px; display: inline-flex; justify-content: center; opacity: 0.7; user-select: none; }
             .entry.collapsed-entry .master-toggle { transform: rotate(-90deg); }
             .entry.collapsed-entry .content, .entry.collapsed-entry .breadcrumb-bar { display: none; }
-            
             .time-tag { font-size: 10px; opacity: 0.6; font-family: monospace; white-space: nowrap; }
+            .type-badge { font-size: 9px; padding: 1px 4px; border-radius: 3px; background: #569cd6; color: white; text-transform: uppercase; font-weight: bold; }
             .name-input { background: transparent; border: 1px solid transparent; color: var(--vscode-foreground); font-size: 11px; font-weight: bold; padding: 2px 4px; width: 150px; border-radius: 2px; }
             .name-input:hover { border-color: var(--vscode-input-border); }
             .name-input:focus { background: var(--vscode-input-background); border-color: var(--vscode-focusBorder); outline: none; }
-
             .actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
             .btn-icon { cursor: pointer; display: flex; align-items: center; padding: 4px; border-radius: 3px; opacity: 0.7; }
             .btn-icon:hover { background: var(--vscode-toolbar-hoverBackground); opacity: 1; }
             .btn-save svg { width: 16px; height: 16px; fill: #3794ef; }
             .btn-copy svg { width: 15px; height: 15px; fill: #cccccc; }
-
             .search-container { display: flex; align-items: center; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 2px; width: 180px; }
             .search-inline { width: 100%; background: transparent; color: var(--vscode-input-foreground); border: none; font-size: 11px; padding: 2px 6px; outline: none; }
             .search-counter { font-size: 10px; padding: 0 5px; opacity: 0.7; font-family: monospace; }
             .btn-delete { color: var(--vscode-errorForeground); cursor: pointer; font-weight: bold; font-size: 16px; line-height: 1; padding: 0 4px; opacity: 0.6; }
             .btn-delete:hover { opacity: 1; }
-            
-            .breadcrumb-bar { 
-                position: sticky;
-                top: 0;
-                z-index: 20;
-                background: var(--vscode-editor-background);
-                border-bottom: 1px solid var(--vscode-panel-border); 
-                padding: 4px 12px; 
-                font-size: 10px; 
-                font-family: monospace; 
-                color: var(--vscode-textLink-foreground);
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                flex-shrink: 0;
-            }
+            .breadcrumb-bar { position: sticky; top: 0; z-index: 20; background: var(--vscode-editor-background); border-bottom: 1px solid var(--vscode-panel-border); padding: 4px 12px; font-size: 10px; font-family: monospace; color: var(--vscode-textLink-foreground); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
             .breadcrumb-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
             .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow: auto; line-height: 1.4; transition: background-color 0.2s; flex-grow: 1; }
-            
-            @keyframes flash-pulse {
-                0% { background-color: rgba(55, 148, 239, 0.25); }
-                100% { background-color: transparent; }
-            }
+            @keyframes flash-pulse { 0% { background-color: rgba(55, 148, 239, 0.4); } 100% { background-color: transparent; } }
             .flash-active { animation: flash-pulse 0.6s ease-out; }
-
             .json-node { margin: 0; position: relative; }
             .json-tree { padding-left: 18px; border-left: 1px solid #404040; margin-left: 6px; }
             .toggle { cursor: pointer; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; color: #808080; }
@@ -147,31 +113,15 @@ function getWebviewContent() {
             .collapsed > .json-tree, .collapsed > .footer { display: none; }
             .collapsed > .header-line::after { content: ' ... }'; color: #808080; }
             .collapsed.is-array > .header-line::after { content: ' ... ]'; }
-            .key { color: #9cdcfe; }
-            .string { color: #ce9178; }
-            .number { color: #b5cea8; }
-            .boolean, .null { color: #569cd6; }
+            .key { color: #9cdcfe; } .string { color: #ce9178; } .number { color: #b5cea8; } .boolean, .null { color: #569cd6; }
             .match { background-color: rgba(151, 121, 0, 0.4); border-radius: 1px; }
             .match.current { background-color: #f7d75c; color: #000; border: 1px solid #ffaa00; font-weight: bold; }
-            
-            #custom-context-menu {
-                position: fixed;
-                z-index: 10000;
-                background: var(--vscode-menu-background);
-                color: var(--vscode-menu-foreground);
-                border: 1px solid var(--vscode-menu-border);
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-                border-radius: 5px;
-                padding: 4px 0;
-                display: none;
-                min-width: 160px;
-                font-size: 12px;
-                user-select: none;
-            }
+            #custom-context-menu { position: fixed; z-index: 10000; background: var(--vscode-menu-background); color: var(--vscode-menu-foreground); border: 1px solid var(--vscode-menu-border); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); border-radius: 5px; padding: 4px 0; display: none; min-width: 160px; font-size: 12px; user-select: none; }
             .ctx-item { padding: 6px 12px; cursor: pointer; display: flex; justify-content: space-between; }
             .ctx-item:hover { background: var(--vscode-menu-selectionBackground); color: var(--vscode-menu-selectionForeground); }
             .ctx-divider { height: 1px; background: var(--vscode-menu-separatorBackground); margin: 4px 0; }
             .ctx-shortcut { opacity: 0.5; font-size: 11px; margin-left: 20px; }
+            .xml-tag { color: #569cd6; } .xml-attr { color: #9cdcfe; } .xml-text { color: var(--vscode-foreground); }
         </style>
     </head>
     <body>
@@ -183,7 +133,7 @@ function getWebviewContent() {
             <div class="ctx-item" id="ctx-copy-path">Copy Path</div>
         </div>
         <div class="toolbar">
-            <h3 style="margin:0">JSON Viewer</h3>
+            <h3 style="margin:0">JSON/XML Viewer</h3>
             <div class="btn-group">
                 <button class="btn-global-icon" title="Collapse All" onclick="setAllCollapse(true)">
                     <svg viewBox="0 0 16 16"><path d="M9 9H5V5h4v4zm5-7H2v12h12V2zM3 13V3h10v10H3z"/></svg>
@@ -195,13 +145,17 @@ function getWebviewContent() {
                 <button class="btn btn-secondary" onclick="document.getElementById('container').innerHTML=''">Clear All</button>
             </div>
         </div>
-        <textarea class="input-box" id="jsonInput" rows="3" placeholder="Paste JSON here and press Enter..." autofocus></textarea>
+        <textarea class="input-box" id="jsonInput" rows="3" placeholder="Paste JSON or XML here and press Enter..." autofocus></textarea>
         <div id="container"></div>
 
         <script>
             const vscode = acquireVsCodeApi();
             const saveIconSvg = \`<svg viewBox="0 0 16 16"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zM4 1h8v4H4V1zm10 13H2V2h1v4h10V2h1v12zM5 10h6v3H5v-3z"/></svg>\`;
             const copyIconSvg = \`<svg viewBox="0 0 16 16"><path d="M4 4V1h11v11h-3v3H1V4h3zm10-2H5v9h9V2zM2 14h9V5H2v9z"/></svg>\`;
+
+            let currentMatches = [];
+            let activeMatchIndex = -1;
+            let lastRightClickPath = "";
 
             function setAllCollapse(collapsed) {
                 document.querySelectorAll('.entry').forEach(entry => {
@@ -212,15 +166,26 @@ function getWebviewContent() {
             document.getElementById('jsonInput').addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey && e.target.value.trim()) {
                     e.preventDefault();
-                    try {
-                        const obj = JSON.parse(e.target.value);
-                        addJsonEntry(obj);
-                        e.target.value = '';
-                    } catch (err) { alert('Invalid JSON: ' + err.message); }
+                    processInput(e.target.value.trim());
+                    e.target.value = '';
                 }
             });
 
-            function addJsonEntry(obj) {
+            function processInput(raw) {
+                if (raw.startsWith('{') || raw.startsWith('[')) {
+                    try {
+                        addEntry(JSON.parse(raw), 'json', raw);
+                        return;
+                    } catch (e) {}
+                }
+                try {
+                    const xmlDoc = new DOMParser().parseFromString(raw, "text/xml");
+                    if (xmlDoc.getElementsByTagName("parsererror").length > 0) throw new Error("XML Parse Error");
+                    addEntry(xmlDoc, 'xml', raw);
+                } catch (err) { alert('Invalid Format: ' + err.message); }
+            }
+
+            function addEntry(data, type, rawString) {
                 const entry = document.createElement('div');
                 entry.className = 'entry';
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -229,9 +194,10 @@ function getWebviewContent() {
                     <div class="header">
                         <span class="master-toggle" onclick="this.closest('.entry').classList.toggle('collapsed-entry')">▼</span>
                         <span class="time-tag">\${time}</span>
-                        <input type="text" class="name-input" placeholder="Name this JSON...">
+                        <span class="type-badge" style="background:\${type === 'json' ? '#4ec9b0' : '#569cd6'}">\${type}</span>
+                        <input type="text" class="name-input" placeholder="Name this entry...">
                         <div class="actions">
-                            <div class="btn-icon btn-copy" title="Copy JSON">\${copyIconSvg}</div>
+                            <div class="btn-icon btn-copy" title="Copy Raw">\${copyIconSvg}</div>
                             <div class="btn-icon btn-save" title="Save to PC">\${saveIconSvg}</div>
                         </div>
                         <div class="search-container">
@@ -243,20 +209,33 @@ function getWebviewContent() {
                     <div class="breadcrumb-bar"><span class="breadcrumb-text">root</span></div>
                     <div class="content"></div>\`;
 
-                entry.querySelector('.btn-copy').onclick = function() {
-                    navigator.clipboard.writeText(JSON.stringify(obj, null, 4)).then(() => {
+                    const copyBtn = entry.querySelector('.btn-copy'); // Capture the reference
+                    copyBtn.onclick = () => {
+                    const text = type === 'json' ? JSON.stringify(data, null, 4) : rawString;
+                    navigator.clipboard.writeText(text).then(() => {
+                        const originalSvg = copyBtn.innerHTML;
+                        // Change icon to checkmark
+                        copyBtn.innerHTML = '<span style="color:#89d185; font-size:11px; font-weight:bold;">✓</span>';
+                        
                         const contentBox = entry.querySelector('.content');
                         contentBox.classList.add('flash-active');
-                        setTimeout(() => contentBox.classList.remove('flash-active'), 600);
+                        
+                        setTimeout(() => {
+                            // Restore original SVG
+                            copyBtn.innerHTML = originalSvg;
+                            contentBox.classList.remove('flash-active');
+                        }, 600);
                     });
                 };
 
                 entry.querySelector('.btn-save').onclick = () => {
                     const name = entry.querySelector('.name-input').value.trim();
-                    vscode.postMessage({ command: 'saveJson', data: obj, fileName: name });
+                    let dataToSave = type === 'json' ? data : new XMLSerializer().serializeToString(data);
+                    vscode.postMessage({ command: 'saveFile', data: dataToSave, fileName: name, extension: type });
                 };
 
-                entry.querySelector('.content').appendChild(renderTree(obj, null, 'root'));
+                const contentArea = entry.querySelector('.content');
+                contentArea.appendChild(type === 'json' ? renderTree(data, null, 'root') : renderXmlTree(data.documentElement, 'root'));
                 document.getElementById('container').prepend(entry);
             }
 
@@ -268,28 +247,22 @@ function getWebviewContent() {
                 const line = document.createElement('div');
                 line.className = 'header-line';
 
-                line.oncontextmenu = (e) => {
-                    e.preventDefault(); e.stopPropagation();
-                    showMenu(e, path);
-                };
-
+                line.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showMenu(e, path); };
                 line.onmouseenter = (e) => {
                     e.stopPropagation();
                     const b = line.closest('.entry').querySelector('.breadcrumb-text');
                     if (b) b.textContent = path;
                 };
 
+                const toggleSpan = document.createElement('span');
                 if (isObj) {
                     node.classList.add(isArray ? 'is-array' : 'is-object');
-                    const t = document.createElement('span');
-                    t.className = 'toggle';
-                    t.onclick = () => node.classList.toggle('collapsed');
-                    line.appendChild(t);
+                    toggleSpan.className = 'toggle';
+                    toggleSpan.onclick = () => node.classList.toggle('collapsed');
                 } else {
-                    const s = document.createElement('span');
-                    s.style.display = 'inline-block'; s.style.width = '14px';
-                    line.appendChild(s);
+                    toggleSpan.style.display = 'inline-block'; toggleSpan.style.width = '14px';
                 }
+                line.appendChild(toggleSpan);
 
                 if (key !== null) {
                     const k = document.createElement('span');
@@ -319,8 +292,64 @@ function getWebviewContent() {
                 return node;
             }
 
-            let currentMatches = [];
-            let activeMatchIndex = -1;
+            function renderXmlTree(node, path) {
+                const div = document.createElement('div');
+                div.className = 'json-node';
+                const line = document.createElement('div');
+                line.className = 'header-line';
+
+                line.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showMenu(e, path); };
+                line.onmouseenter = (e) => {
+                    e.stopPropagation();
+                    const b = line.closest('.entry').querySelector('.breadcrumb-text');
+                    if (b) b.textContent = path;
+                };
+
+                const hasChildren = node.children.length > 0;
+                const toggleSpan = document.createElement('span');
+                if (hasChildren) {
+                    toggleSpan.className = 'toggle';
+                    toggleSpan.onclick = () => div.classList.toggle('collapsed');
+                } else {
+                    toggleSpan.style.display = 'inline-block'; toggleSpan.style.width = '14px';
+                }
+                line.appendChild(toggleSpan);
+
+                const tagOpen = document.createElement('span');
+                tagOpen.className = 'xml-tag';
+                tagOpen.textContent = '<' + node.tagName;
+                line.appendChild(tagOpen);
+
+                Array.from(node.attributes).forEach(attr => {
+                    const a = document.createElement('span');
+                    a.innerHTML = \` <span class="xml-attr">\${attr.name}</span>="<span class="string">\${attr.value}</span>"\`;
+                    line.appendChild(a);
+                });
+                line.append('>');
+
+                if (!hasChildren && node.textContent) {
+                    const txt = document.createElement('span');
+                    txt.className = 'xml-text'; txt.textContent = node.textContent;
+                    line.appendChild(txt);
+                    const tagClose = document.createElement('span');
+                    tagClose.className = 'xml-tag'; tagClose.textContent = '</' + node.tagName + '>';
+                    line.appendChild(tagClose);
+                    div.appendChild(line);
+                } else if (hasChildren) {
+                    div.appendChild(line);
+                    const tree = document.createElement('div');
+                    tree.className = 'json-tree';
+                    Array.from(node.children).forEach(child => tree.appendChild(renderXmlTree(child, path + '.' + child.tagName)));
+                    div.appendChild(tree);
+                    const footer = document.createElement('div');
+                    footer.className = 'footer'; footer.style.paddingLeft = '18px';
+                    footer.innerHTML = \`<span class="xml-tag">&lt;/\${node.tagName}&gt;</span>\`;
+                    div.appendChild(footer);
+                } else {
+                    div.appendChild(line);
+                }
+                return div;
+            }
 
             function initSearch(input) {
                 const query = input.value.toLowerCase();
@@ -342,8 +371,7 @@ function getWebviewContent() {
                 nodes.forEach(node => {
                     let val = node.nodeValue;
                     let lowerVal = val.toLowerCase();
-                    let index;
-                    let startPos = 0;
+                    let index, startPos = 0;
                     while ((index = lowerVal.indexOf(query, startPos)) !== -1) {
                         const span = document.createElement('span');
                         span.className = 'match';
@@ -376,15 +404,18 @@ function getWebviewContent() {
                 const current = currentMatches[activeMatchIndex];
                 if (!current) return;
                 current.classList.add('current');
-                
+
+                // AUTO-EXPAND LOGIC
+                const entry = current.closest('.entry');
+                if (entry.classList.contains('collapsed-entry')) entry.classList.remove('collapsed-entry');
+
                 let p = current.closest('.json-node.collapsed');
                 while(p) { p.classList.remove('collapsed'); p = p.parentElement.closest('.json-node.collapsed'); }
-                
+
                 current.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 counter.textContent = (activeMatchIndex + 1) + "/" + currentMatches.length;
             }
 
-            let lastRightClickPath = "";
             function showMenu(e, path) {
                 const menu = document.getElementById('custom-context-menu');
                 lastRightClickPath = path;
@@ -393,15 +424,11 @@ function getWebviewContent() {
                 let top = e.pageY;
                 if (top + menu.offsetHeight > window.innerHeight) top -= menu.offsetHeight;
                 menu.style.top = top + 'px';
-
                 const hide = () => { menu.style.display = 'none'; document.removeEventListener('click', hide); };
                 setTimeout(() => document.addEventListener('click', hide), 0);
             }
 
-            document.getElementById('ctx-copy-path').onclick = () => {
-                navigator.clipboard.writeText(lastRightClickPath);
-            };
-
+            document.getElementById('ctx-copy-path').onclick = () => navigator.clipboard.writeText(lastRightClickPath);
             function execCommand(cmd) { document.execCommand(cmd); }
         </script>
     </body>

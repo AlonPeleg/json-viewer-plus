@@ -117,7 +117,16 @@ function getWebviewContent() {
             .btn-delete { color: var(--vscode-errorForeground); cursor: pointer; font-weight: bold; font-size: 16px; line-height: 1; padding: 0 4px; opacity: 0.6; }
             .btn-delete:hover { opacity: 1; }
             
-            .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow-x: auto; line-height: 1.4; }
+            .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow-x: auto; line-height: 1.4; transition: background-color 0.2s; }
+            
+            /* --- FLASH ANIMATION --- */
+            @keyframes flash-pulse {
+                0% { background-color: rgba(55, 148, 239, 0.25); }
+                100% { background-color: transparent; }
+            }
+            .flash-active { animation: flash-pulse 0.6s ease-out; }
+            /* ----------------------- */
+
             .json-node { margin: 0; position: relative; }
             .json-tree { padding-left: 18px; border-left: 1px solid #404040; margin-left: 6px; }
             .toggle { cursor: pointer; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; color: #808080; }
@@ -165,8 +174,6 @@ function getWebviewContent() {
                 });
             }
 
-            // ... (keep addJsonEntry and rest of script logic as before) ...
-
             document.getElementById('jsonInput').addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey && e.target.value.trim()) {
                     e.preventDefault();
@@ -205,9 +212,26 @@ function getWebviewContent() {
                 entry.querySelector('.btn-copy').onclick = function() {
                     const jsonString = JSON.stringify(obj, null, 4);
                     navigator.clipboard.writeText(jsonString).then(() => {
+                        // 1. Icon feedback
                         const originalSvg = this.innerHTML;
                         this.innerHTML = '<span style="color:#89d185; font-size:11px; font-weight:bold;">✓</span>';
-                        setTimeout(() => { this.innerHTML = originalSvg; }, 1000);
+                        
+                        // 2. Flash feedback logic
+                        const contentBox = entry.querySelector('.content');
+                        
+                        // Reset class to allow re-triggering
+                        contentBox.classList.remove('flash-active');
+                        void contentBox.offsetWidth; // Force reflow
+                        contentBox.classList.add('flash-active');
+
+                        // NEW: Remove class after animation ends to prevent "ghost" flashes on toggle
+                        contentBox.onanimationend = () => {
+                            contentBox.classList.remove('flash-active');
+                        };
+
+                        setTimeout(() => { 
+                            this.innerHTML = originalSvg;
+                        }, 1000);
                     });
                 };
 
@@ -265,6 +289,9 @@ function getWebviewContent() {
                 return node;
             }
 
+            let currentMatches = [];
+            let activeMatchIndex = -1;
+
             function initSearch(input) {
                 const query = input.value.toLowerCase();
                 const container = input.closest('.entry');
@@ -316,6 +343,7 @@ function getWebviewContent() {
             function updateMatchHighlight(counter) {
                 currentMatches.forEach(m => m.classList.remove('current'));
                 const current = currentMatches[activeMatchIndex];
+                if (!current) return;
                 current.classList.add('current');
                 const masterEntry = current.closest('.entry');
                 if (masterEntry) masterEntry.classList.remove('collapsed-entry');

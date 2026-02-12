@@ -433,11 +433,31 @@ function getWebviewContent() {
                 const menu = document.getElementById('custom-context-menu');
                 lastRightClickPath = path;
                 
+                // Reset display so we can calculate height
                 menu.style.display = 'block';
-                menu.style.left = e.pageX + 'px';
-                menu.style.top = e.pageY + 'px';
+                menu.style.visibility = 'hidden';
 
-                const hide = () => { menu.style.display = 'none'; document.removeEventListener('click', hide); };
+                // Calculate position
+                let left = e.pageX;
+                let top = e.pageY;
+
+                // Flip upward if near bottom
+                const menuHeight = menu.offsetHeight;
+                const windowHeight = window.innerHeight;
+
+                if (top + menuHeight > windowHeight) {
+                    top = top - menuHeight;
+                }
+
+                // Apply positions
+                menu.style.left = left + 'px';
+                menu.style.top = top + 'px';
+                menu.style.visibility = 'visible';
+
+                const hide = () => { 
+                    menu.style.display = 'none'; 
+                    document.removeEventListener('click', hide); 
+                };
                 setTimeout(() => document.addEventListener('click', hide), 0);
             }
 

@@ -31,27 +31,28 @@ export function activate(context: vscode.ExtensionContext) {
                 }
 
                 if (message.command === 'saveJson') {
-                    const { data, fileName } = message;
+                    let { data, fileName } = message;
 
-                    // 1. Determine the Desktop path
+                    // 1. If no name was entered, generate a timestamped one
+                    if (!fileName || fileName.trim() === 'data') {
+                        const now = new Date();
+                        const dateStr = now.toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
+                        const timeStr = now.getHours().toString().padStart(2, '0') +
+                            now.getMinutes().toString().padStart(2, '0');      // HHMM
+                        fileName = `JSON_${dateStr}_${timeStr}`;
+                    }
+
                     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
                     const desktopPath = vscode.Uri.file(require('path').join(homeDir, 'Desktop', fileName + '.json'));
 
-                    // 2. Open dialog with preferred location and suggested name
                     const uri = await vscode.window.showSaveDialog({
                         defaultUri: desktopPath,
-                        filters: { 'JSON files': ['json'] },
-                        saveLabel: 'Save JSON'
+                        filters: { 'JSON files': ['json'] }
                     });
 
                     if (uri) {
-                        try {
-                            // Use the workspace filesystem API to write the file
-                            await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(data, null, 4)));
-                            vscode.window.showInformationMessage(`Successfully saved to ${uri.fsPath}`);
-                        } catch (err: any) {
-                            vscode.window.showErrorMessage(`Failed to save: ${err.message}`);
-                        }
+                        await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(data, null, 4)));
+                        vscode.window.showInformationMessage(`Saved: ${fileName}.json`);
                     }
                 }
             });

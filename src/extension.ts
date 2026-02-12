@@ -33,7 +33,6 @@ export function activate(context: vscode.ExtensionContext) {
                 if (message.command === 'saveJson') {
                     let { data, fileName } = message;
 
-                    // 1. If no name was entered, generate a timestamped one
                     if (!fileName || fileName.trim() === 'data') {
                         const now = new Date();
                         const dateStr = now.toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
@@ -72,13 +71,11 @@ function getWebviewContent() {
             body { font-family: var(--vscode-editor-font-family); color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); padding: 15px; }
             .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
             
-            /* Main Toolbar Buttons */
             .btn-group { display: flex; gap: 6px; align-items: center; }
             .btn { border: none; padding: 4px 10px; cursor: pointer; border-radius: 2px; font-size: 12px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
             .btn-secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
             .btn:hover { filter: brightness(1.2); }
 
-            /* Global Icon Buttons */
             .btn-global-icon { 
                 background: transparent; 
                 border: none; 
@@ -117,15 +114,28 @@ function getWebviewContent() {
             .btn-delete { color: var(--vscode-errorForeground); cursor: pointer; font-weight: bold; font-size: 16px; line-height: 1; padding: 0 4px; opacity: 0.6; }
             .btn-delete:hover { opacity: 1; }
             
+            /* --- BREADCRUMB BAR --- */
+            .breadcrumb-bar { 
+                background: var(--vscode-editorWidget-background); 
+                border-bottom: 1px solid var(--vscode-panel-border); 
+                padding: 4px 12px; 
+                font-size: 10px; 
+                font-family: monospace; 
+                color: var(--vscode-textLink-foreground);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                min-height: 1.2em;
+            }
+            /* ----------------------- */
+
             .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow-x: auto; line-height: 1.4; transition: background-color 0.2s; }
             
-            /* --- FLASH ANIMATION --- */
             @keyframes flash-pulse {
                 0% { background-color: rgba(55, 148, 239, 0.25); }
                 100% { background-color: transparent; }
             }
             .flash-active { animation: flash-pulse 0.6s ease-out; }
-            /* ----------------------- */
 
             .json-node { margin: 0; position: relative; }
             .json-tree { padding-left: 18px; border-left: 1px solid #404040; margin-left: 6px; }
@@ -207,28 +217,21 @@ function getWebviewContent() {
                         </div>
                         <div class="btn-delete" title="Remove" onclick="this.closest('.entry').remove()">×</div>
                     </div>
+                    <div class="breadcrumb-bar">root</div>
                     <div class="content"></div>\`;
 
                 entry.querySelector('.btn-copy').onclick = function() {
                     const jsonString = JSON.stringify(obj, null, 4);
                     navigator.clipboard.writeText(jsonString).then(() => {
-                        // 1. Icon feedback
                         const originalSvg = this.innerHTML;
                         this.innerHTML = '<span style="color:#89d185; font-size:11px; font-weight:bold;">✓</span>';
-                        
-                        // 2. Flash feedback logic
                         const contentBox = entry.querySelector('.content');
-                        
-                        // Reset class to allow re-triggering
                         contentBox.classList.remove('flash-active');
-                        void contentBox.offsetWidth; // Force reflow
+                        void contentBox.offsetWidth; 
                         contentBox.classList.add('flash-active');
-
-                        // NEW: Remove class after animation ends to prevent "ghost" flashes on toggle
                         contentBox.onanimationend = () => {
                             contentBox.classList.remove('flash-active');
                         };
-
                         setTimeout(() => { 
                             this.innerHTML = originalSvg;
                         }, 1000);
@@ -240,17 +243,27 @@ function getWebviewContent() {
                     vscode.postMessage({ command: 'saveJson', data: obj, fileName: name });
                 };
 
-                entry.querySelector('.content').appendChild(renderTree(obj));
+                entry.querySelector('.content').appendChild(renderTree(obj, null, 'root'));
                 document.getElementById('container').prepend(entry);
             }
 
-            function renderTree(data, key = null) {
+            function renderTree(data, key = null, path = '') {
                 const node = document.createElement('div');
                 node.className = 'json-node';
                 const isObj = data !== null && typeof data === 'object';
                 const isArray = Array.isArray(data);
                 const line = document.createElement('div');
                 line.className = 'header-line';
+
+                // --- BREADCRUMB HOVER LOGIC ---
+                line.onmouseenter = (e) => {
+                    e.stopPropagation();
+                    const entry = line.closest('.entry');
+                    if (entry) {
+                        entry.querySelector('.breadcrumb-bar').textContent = path;
+                    }
+                };
+
                 if (isObj) {
                     node.classList.add(isArray ? 'is-array' : 'is-object');
                     const t = document.createElement('span');
@@ -272,8 +285,8 @@ function getWebviewContent() {
                     node.appendChild(line);
                     const tree = document.createElement('div');
                     tree.className = 'json-tree';
-                    if (isArray) data.forEach(item => tree.appendChild(renderTree(item, null)));
-                    else Object.keys(data).forEach(k => tree.appendChild(renderTree(data[k], k)));
+                    if (isArray) data.forEach((item, i) => tree.appendChild(renderTree(item, null, path + '[' + i + ']')));
+                    else Object.keys(data).forEach(k => tree.appendChild(renderTree(data[k], k, path + '.' + k)));
                     node.appendChild(tree);
                     const f = document.createElement('div');
                     f.className = 'footer'; f.style.paddingLeft = '18px';

@@ -264,7 +264,6 @@ function getWebviewContent() {
                     </div>
                     <div class="breadcrumb-bar">
                         <span class="breadcrumb-text">root</span>
-                        <div class="btn-copy-path" title="Copy Path" onclick="copyBreadcrumb(this)">\${copyIconSvg}</div>
                     </div>
                     <div class="content"></div>\`;
 

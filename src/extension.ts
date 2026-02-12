@@ -83,17 +83,13 @@ function getWebviewContent() {
             .name-input:hover { border-color: var(--vscode-input-border); }
             .name-input:focus { background: var(--vscode-input-background); border-color: var(--vscode-focusBorder); outline: none; }
 
-            .btn-save { 
-                margin-left: auto; 
-                cursor: pointer; 
-                display: flex; 
-                align-items: center; 
-                padding: 4px; 
-                border-radius: 3px;
-                opacity: 0.7;
-            }
-            .btn-save:hover { background: var(--vscode-toolbar-hoverBackground); opacity: 1; }
+            /* Action Buttons Styling */
+            .actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+            .btn-icon { cursor: pointer; display: flex; align-items: center; padding: 4px; border-radius: 3px; opacity: 0.7; }
+            .btn-icon:hover { background: var(--vscode-toolbar-hoverBackground); opacity: 1; }
+            
             .btn-save svg { width: 16px; height: 16px; fill: #3794ef; }
+            .btn-copy svg { width: 15px; height: 15px; fill: #cccccc; }
 
             .search-container { display: flex; align-items: center; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 2px; width: 180px; }
             .search-inline { width: 100%; background: transparent; color: var(--vscode-input-foreground); border: none; font-size: 11px; padding: 2px 6px; outline: none; }
@@ -134,6 +130,7 @@ function getWebviewContent() {
             let currentMatches = [];
 
             const saveIconSvg = \`<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zM4 1h8v4H4V1zm10 13H2V2h1v4h10V2h1v12zM5 10h6v3H5v-3z"/></svg>\`;
+            const copyIconSvg = \`<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 4V1h11v11h-3v3H1V4h3zm10-2H5v9h9V2zM2 14h9V5H2v9z"/></svg>\`;
 
             document.getElementById('jsonInput').addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey && e.target.value.trim()) {
@@ -156,7 +153,12 @@ function getWebviewContent() {
                         <span class="master-toggle" onclick="this.closest('.entry').classList.toggle('collapsed-entry')">▼</span>
                         <span class="time-tag">\${time}</span>
                         <input type="text" class="name-input" placeholder="Name this JSON...">
-                        <div class="btn-save" title="Save JSON to PC">\${saveIconSvg}</div>
+                        
+                        <div class="actions">
+                            <div class="btn-icon btn-copy" title="Copy JSON">\${copyIconSvg}</div>
+                            <div class="btn-icon btn-save" title="Save JSON to PC">\${saveIconSvg}</div>
+                        </div>
+
                         <div class="search-container">
                             <input type="text" class="search-inline" placeholder="Find..." oninput="initSearch(this)" onkeydown="navigateSearch(event, this)">
                             <span class="search-counter">0/0</span>
@@ -165,9 +167,19 @@ function getWebviewContent() {
                     </div>
                     <div class="content"></div>\`;
 
-                // Send data to extension host to trigger file browser
+                // Handle Copy
+                entry.querySelector('.btn-copy').onclick = function() {
+                    const jsonString = JSON.stringify(obj, null, 4);
+                    navigator.clipboard.writeText(jsonString).then(() => {
+                        const originalSvg = this.innerHTML;
+                        this.innerHTML = '<span style="color:#89d185; font-size:11px; font-weight:bold;">✓</span>';
+                        setTimeout(() => { this.innerHTML = originalSvg; }, 1000);
+                    });
+                };
+
+                // Handle Save
                 entry.querySelector('.btn-save').onclick = () => {
-                    const name = entry.querySelector('.name-input').value || 'data';
+                    const name = entry.querySelector('.name-input').value.trim();
                     vscode.postMessage({
                         command: 'saveJson',
                         data: obj,

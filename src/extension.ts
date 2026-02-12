@@ -24,10 +24,35 @@ export function activate(context: vscode.ExtensionContext) {
 
             panel.onDidDispose(() => { panel = undefined; }, null, context.subscriptions);
             panel.webview.html = getWebviewContent();
-            
-            panel.webview.onDidReceiveMessage(message => {
+
+            panel.webview.onDidReceiveMessage(async message => {
                 if (message.command === 'pinTab') {
                     vscode.commands.executeCommand('workbench.action.keepEditor');
+                }
+
+                if (message.command === 'saveJson') {
+                    const { data, fileName } = message;
+
+                    // 1. Determine the Desktop path
+                    const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+                    const desktopPath = vscode.Uri.file(require('path').join(homeDir, 'Desktop', fileName + '.json'));
+
+                    // 2. Open dialog with preferred location and suggested name
+                    const uri = await vscode.window.showSaveDialog({
+                        defaultUri: desktopPath,
+                        filters: { 'JSON files': ['json'] },
+                        saveLabel: 'Save JSON'
+                    });
+
+                    if (uri) {
+                        try {
+                            // Use the workspace filesystem API to write the file
+                            await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(data, null, 4)));
+                            vscode.window.showInformationMessage(`Successfully saved to ${uri.fsPath}`);
+                        } catch (err: any) {
+                            vscode.window.showErrorMessage(`Failed to save: ${err.message}`);
+                        }
+                    }
                 }
             });
         }
@@ -46,45 +71,46 @@ function getWebviewContent() {
             .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
             .btn { border: none; padding: 4px 10px; cursor: pointer; border-radius: 2px; font-size: 12px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
             .input-box { width: 100%; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 10px; margin-bottom: 15px; font-family: monospace; border-radius: 4px; box-sizing: border-box; outline: none; }
-            
             .entry { border: 1px solid var(--vscode-panel-border); margin-bottom: 15px; border-radius: 4px; overflow: hidden; background: var(--vscode-editor-background); }
-            
             .header { background: var(--vscode-editor-lineHighlightBackground); padding: 4px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
-            
-            /* Master Toggle Style */
-            .master-toggle { cursor: pointer; font-size: 10px; width: 14px; display: inline-flex; justify-content: center; opacity: 0.7; transition: transform 0.1s; user-select: none; }
+            .master-toggle { cursor: pointer; font-size: 10px; width: 14px; display: inline-flex; justify-content: center; opacity: 0.7; user-select: none; }
             .entry.collapsed-entry .master-toggle { transform: rotate(-90deg); }
             .entry.collapsed-entry .content { display: none; }
-
             .time-tag { font-size: 10px; opacity: 0.6; font-family: monospace; white-space: nowrap; }
             .name-input { background: transparent; border: 1px solid transparent; color: var(--vscode-foreground); font-size: 11px; font-weight: bold; padding: 2px 4px; width: 150px; border-radius: 2px; }
             .name-input:hover { border-color: var(--vscode-input-border); }
             .name-input:focus { background: var(--vscode-input-background); border-color: var(--vscode-focusBorder); outline: none; }
 
-            .search-container { display: flex; align-items: center; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 2px; margin-left: auto; width: 180px; }
+            .btn-save { 
+                margin-left: auto; 
+                cursor: pointer; 
+                display: flex; 
+                align-items: center; 
+                padding: 4px; 
+                border-radius: 3px;
+                opacity: 0.7;
+            }
+            .btn-save:hover { background: var(--vscode-toolbar-hoverBackground); opacity: 1; }
+            .btn-save svg { width: 16px; height: 16px; fill: #3794ef; }
+
+            .search-container { display: flex; align-items: center; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 2px; width: 180px; }
             .search-inline { width: 100%; background: transparent; color: var(--vscode-input-foreground); border: none; font-size: 11px; padding: 2px 6px; outline: none; }
             .search-counter { font-size: 10px; padding: 0 5px; opacity: 0.7; font-family: monospace; }
-
             .btn-delete { color: var(--vscode-errorForeground); cursor: pointer; font-weight: bold; font-size: 16px; line-height: 1; padding: 0 4px; opacity: 0.6; }
             .btn-delete:hover { opacity: 1; }
-
             .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow-x: auto; line-height: 1.4; }
             .json-node { margin: 0; position: relative; }
             .json-tree { padding-left: 18px; border-left: 1px solid #404040; margin-left: 6px; }
-            
             .toggle { cursor: pointer; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; color: #808080; }
             .toggle::before { content: '▼'; }
             .collapsed > .header-line > .toggle::before { content: '▶'; }
-            
             .collapsed > .json-tree, .collapsed > .footer { display: none; }
             .collapsed > .header-line::after { content: ' ... }'; color: #808080; }
             .collapsed.is-array > .header-line::after { content: ' ... ]'; }
-
             .key { color: #9cdcfe; }
             .string { color: #ce9178; }
             .number { color: #b5cea8; }
             .boolean, .null { color: #569cd6; }
-
             .match { background-color: rgba(151, 121, 0, 0.4); border-radius: 1px; }
             .match.current { background-color: #f7d75c; color: #000; border: 1px solid #ffaa00; font-weight: bold; }
         </style>
@@ -97,13 +123,15 @@ function getWebviewContent() {
                 <button class="btn" style="background: var(--vscode-button-secondaryBackground);" onclick="document.getElementById('container').innerHTML=''">Clear All</button>
             </div>
         </div>
-        <textarea class="input-box" id="jsonInput" rows="3" placeholder="Paste JSON here and press Enter (Shift+Enter for new line)..." autofocus></textarea>
+        <textarea class="input-box" id="jsonInput" rows="3" placeholder="Paste JSON here and press Enter..." autofocus></textarea>
         <div id="container"></div>
 
         <script>
             const vscode = acquireVsCodeApi();
             let activeMatchIndex = -1;
             let currentMatches = [];
+
+            const saveIconSvg = \`<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zM4 1h8v4H4V1zm10 13H2V2h1v4h10V2h1v12zM5 10h6v3H5v-3z"/></svg>\`;
 
             document.getElementById('jsonInput').addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey && e.target.value.trim()) {
@@ -123,9 +151,10 @@ function getWebviewContent() {
                 
                 entry.innerHTML = \`
                     <div class="header">
-                        <span class="master-toggle" title="Toggle Block" onclick="this.closest('.entry').classList.toggle('collapsed-entry')">▼</span>
+                        <span class="master-toggle" onclick="this.closest('.entry').classList.toggle('collapsed-entry')">▼</span>
                         <span class="time-tag">\${time}</span>
                         <input type="text" class="name-input" placeholder="Name this JSON...">
+                        <div class="btn-save" title="Save JSON to PC">\${saveIconSvg}</div>
                         <div class="search-container">
                             <input type="text" class="search-inline" placeholder="Find..." oninput="initSearch(this)" onkeydown="navigateSearch(event, this)">
                             <span class="search-counter">0/0</span>
@@ -133,6 +162,17 @@ function getWebviewContent() {
                         <div class="btn-delete" title="Remove" onclick="this.closest('.entry').remove()">×</div>
                     </div>
                     <div class="content"></div>\`;
+
+                // Send data to extension host to trigger file browser
+                entry.querySelector('.btn-save').onclick = () => {
+                    const name = entry.querySelector('.name-input').value || 'data';
+                    vscode.postMessage({
+                        command: 'saveJson',
+                        data: obj,
+                        fileName: name
+                    });
+                };
+
                 entry.querySelector('.content').appendChild(renderTree(obj));
                 document.getElementById('container').prepend(entry);
             }
@@ -144,7 +184,6 @@ function getWebviewContent() {
                 const isArray = Array.isArray(data);
                 const line = document.createElement('div');
                 line.className = 'header-line';
-
                 if (isObj) {
                     node.classList.add(isArray ? 'is-array' : 'is-object');
                     const t = document.createElement('span');
@@ -156,23 +195,18 @@ function getWebviewContent() {
                     s.style.display = 'inline-block'; s.style.width = '14px';
                     line.appendChild(s);
                 }
-
                 if (key !== null) {
                     const k = document.createElement('span');
                     k.className = 'key'; k.textContent = '"' + key + '": ';
                     line.appendChild(k);
                 }
-
                 if (isObj) {
                     line.append(isArray ? '[' : '{');
                     node.appendChild(line);
                     const tree = document.createElement('div');
                     tree.className = 'json-tree';
-                    if (isArray) {
-                        data.forEach(item => tree.appendChild(renderTree(item, null)));
-                    } else {
-                        Object.keys(data).forEach(k => tree.appendChild(renderTree(data[k], k)));
-                    }
+                    if (isArray) data.forEach(item => tree.appendChild(renderTree(item, null)));
+                    else Object.keys(data).forEach(k => tree.appendChild(renderTree(data[k], k)));
                     node.appendChild(tree);
                     const f = document.createElement('div');
                     f.className = 'footer'; f.style.paddingLeft = '18px';
@@ -193,44 +227,34 @@ function getWebviewContent() {
                 const container = input.closest('.entry');
                 const content = container.querySelector('.content');
                 const counter = container.querySelector('.search-counter');
-                
                 content.querySelectorAll('.match').forEach(m => m.replaceWith(document.createTextNode(m.textContent)));
                 content.normalize(); 
-                
                 currentMatches = [];
                 activeMatchIndex = -1;
-
                 if (!query) { counter.textContent = "0/0"; return; }
-
                 const walk = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, null, false);
                 let n, nodes = [];
                 while(n = walk.nextNode()) nodes.push(n);
-
                 nodes.forEach(node => {
                     let val = node.nodeValue;
                     let lowerVal = val.toLowerCase();
                     let startPos = 0;
                     let index;
-
                     while ((index = lowerVal.indexOf(query, startPos)) !== -1) {
                         const matchText = val.substring(index, index + query.length);
                         const span = document.createElement('span');
                         span.className = 'match';
                         span.textContent = matchText;
-
                         const remainingText = node.splitText(index);
                         remainingText.nodeValue = remainingText.nodeValue.substring(query.length);
                         node.parentNode.insertBefore(span, remainingText);
-                        
                         currentMatches.push(span);
-                        
                         node = remainingText;
                         val = node.nodeValue;
                         lowerVal = val.toLowerCase();
                         startPos = 0;
                     }
                 });
-
                 if (currentMatches.length > 0) {
                     activeMatchIndex = 0;
                     updateMatchHighlight(counter);
@@ -250,15 +274,10 @@ function getWebviewContent() {
                 currentMatches.forEach(m => m.classList.remove('current'));
                 const current = currentMatches[activeMatchIndex];
                 current.classList.add('current');
-                
-                // Expand Master Block if it was collapsed
                 const masterEntry = current.closest('.entry');
                 if (masterEntry) masterEntry.classList.remove('collapsed-entry');
-
-                // Expand internal JSON nodes
                 let p = current.closest('.json-node.collapsed');
                 while(p) { p.classList.remove('collapsed'); p = p.parentElement.closest('.json-node.collapsed'); }
-
                 current.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 counter.textContent = (activeMatchIndex + 1) + "/" + currentMatches.length;
             }

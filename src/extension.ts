@@ -71,23 +71,43 @@ function getWebviewContent() {
         <style>
             body { font-family: var(--vscode-editor-font-family); color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); padding: 15px; }
             .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+            
+            /* Main Toolbar Buttons */
+            .btn-group { display: flex; gap: 6px; align-items: center; }
             .btn { border: none; padding: 4px 10px; cursor: pointer; border-radius: 2px; font-size: 12px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+            .btn-secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+            .btn:hover { filter: brightness(1.2); }
+
+            /* Global Icon Buttons */
+            .btn-global-icon { 
+                background: transparent; 
+                border: none; 
+                cursor: pointer; 
+                padding: 4px; 
+                display: flex; 
+                align-items: center; 
+                border-radius: 3px;
+                opacity: 0.8;
+            }
+            .btn-global-icon:hover { background: var(--vscode-toolbar-hoverBackground); opacity: 1; }
+            .btn-global-icon svg { width: 16px; height: 16px; fill: var(--vscode-foreground); }
+
             .input-box { width: 100%; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 10px; margin-bottom: 15px; font-family: monospace; border-radius: 4px; box-sizing: border-box; outline: none; }
             .entry { border: 1px solid var(--vscode-panel-border); margin-bottom: 15px; border-radius: 4px; overflow: hidden; background: var(--vscode-editor-background); }
             .header { background: var(--vscode-editor-lineHighlightBackground); padding: 4px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
+            
             .master-toggle { cursor: pointer; font-size: 10px; width: 14px; display: inline-flex; justify-content: center; opacity: 0.7; user-select: none; }
             .entry.collapsed-entry .master-toggle { transform: rotate(-90deg); }
             .entry.collapsed-entry .content { display: none; }
+            
             .time-tag { font-size: 10px; opacity: 0.6; font-family: monospace; white-space: nowrap; }
             .name-input { background: transparent; border: 1px solid transparent; color: var(--vscode-foreground); font-size: 11px; font-weight: bold; padding: 2px 4px; width: 150px; border-radius: 2px; }
             .name-input:hover { border-color: var(--vscode-input-border); }
             .name-input:focus { background: var(--vscode-input-background); border-color: var(--vscode-focusBorder); outline: none; }
 
-            /* Action Buttons Styling */
             .actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
             .btn-icon { cursor: pointer; display: flex; align-items: center; padding: 4px; border-radius: 3px; opacity: 0.7; }
             .btn-icon:hover { background: var(--vscode-toolbar-hoverBackground); opacity: 1; }
-            
             .btn-save svg { width: 16px; height: 16px; fill: #3794ef; }
             .btn-copy svg { width: 15px; height: 15px; fill: #cccccc; }
 
@@ -96,6 +116,7 @@ function getWebviewContent() {
             .search-counter { font-size: 10px; padding: 0 5px; opacity: 0.7; font-family: monospace; }
             .btn-delete { color: var(--vscode-errorForeground); cursor: pointer; font-weight: bold; font-size: 16px; line-height: 1; padding: 0 4px; opacity: 0.6; }
             .btn-delete:hover { opacity: 1; }
+            
             .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow-x: auto; line-height: 1.4; }
             .json-node { margin: 0; position: relative; }
             .json-tree { padding-left: 18px; border-left: 1px solid #404040; margin-left: 6px; }
@@ -116,9 +137,16 @@ function getWebviewContent() {
     <body>
         <div class="toolbar">
             <h3 style="margin:0">JSON Viewer</h3>
-            <div style="display:flex; gap:8px;">
+            <div class="btn-group">
+                <button class="btn-global-icon" title="Collapse All Entries" onclick="setAllCollapse(true)">
+                    <svg viewBox="0 0 16 16"><path d="M9 9H5V5h4v4zm5-7H2v12h12V2zM3 13V3h10v10H3z"/></svg>
+                </button>
+                <button class="btn-global-icon" title="Expand All Entries" onclick="setAllCollapse(false)">
+                    <svg viewBox="0 0 16 16"><path d="M11 11H5V5h6v6zm3-9H2v12h12V2zM3 13V3h10v10H3z"/></svg>
+                </button>
+                
                 <button class="btn" onclick="vscode.postMessage({command:'pinTab'})">Keep Open</button>
-                <button class="btn" style="background: var(--vscode-button-secondaryBackground);" onclick="document.getElementById('container').innerHTML=''">Clear All</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('container').innerHTML=''">Clear All</button>
             </div>
         </div>
         <textarea class="input-box" id="jsonInput" rows="3" placeholder="Paste JSON here and press Enter..." autofocus></textarea>
@@ -126,11 +154,18 @@ function getWebviewContent() {
 
         <script>
             const vscode = acquireVsCodeApi();
-            let activeMatchIndex = -1;
-            let currentMatches = [];
+            
+            const saveIconSvg = \`<svg viewBox="0 0 16 16"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zM4 1h8v4H4V1zm10 13H2V2h1v4h10V2h1v12zM5 10h6v3H5v-3z"/></svg>\`;
+            const copyIconSvg = \`<svg viewBox="0 0 16 16"><path d="M4 4V1h11v11h-3v3H1V4h3zm10-2H5v9h9V2zM2 14h9V5H2v9z"/></svg>\`;
 
-            const saveIconSvg = \`<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zM4 1h8v4H4V1zm10 13H2V2h1v4h10V2h1v12zM5 10h6v3H5v-3z"/></svg>\`;
-            const copyIconSvg = \`<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 4V1h11v11h-3v3H1V4h3zm10-2H5v9h9V2zM2 14h9V5H2v9z"/></svg>\`;
+            function setAllCollapse(collapsed) {
+                document.querySelectorAll('.entry').forEach(entry => {
+                    if (collapsed) entry.classList.add('collapsed-entry');
+                    else entry.classList.remove('collapsed-entry');
+                });
+            }
+
+            // ... (keep addJsonEntry and rest of script logic as before) ...
 
             document.getElementById('jsonInput').addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey && e.target.value.trim()) {
@@ -167,7 +202,6 @@ function getWebviewContent() {
                     </div>
                     <div class="content"></div>\`;
 
-                // Handle Copy
                 entry.querySelector('.btn-copy').onclick = function() {
                     const jsonString = JSON.stringify(obj, null, 4);
                     navigator.clipboard.writeText(jsonString).then(() => {
@@ -177,14 +211,9 @@ function getWebviewContent() {
                     });
                 };
 
-                // Handle Save
                 entry.querySelector('.btn-save').onclick = () => {
                     const name = entry.querySelector('.name-input').value.trim();
-                    vscode.postMessage({
-                        command: 'saveJson',
-                        data: obj,
-                        fileName: name
-                    });
+                    vscode.postMessage({ command: 'saveJson', data: obj, fileName: name });
                 };
 
                 entry.querySelector('.content').appendChild(renderTree(obj));

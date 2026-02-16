@@ -95,6 +95,7 @@ function getWebviewContent() {
             .btn-icon:hover { background: var(--vscode-toolbar-hoverBackground); opacity: 1; }
             .btn-save svg { width: 16px; height: 16px; fill: #3794ef; }
             .btn-copy svg { width: 15px; height: 15px; fill: #cccccc; }
+            .btn-minify svg { width: 16px; height: 16px; fill: #dcdcaa; }
             .search-container { display: flex; align-items: center; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 2px; width: 180px; }
             .search-inline { width: 100%; background: transparent; color: var(--vscode-input-foreground); border: none; font-size: 11px; padding: 2px 6px; outline: none; }
             .search-counter { font-size: 10px; padding: 0 5px; opacity: 0.7; font-family: monospace; }
@@ -152,6 +153,7 @@ function getWebviewContent() {
             const vscode = acquireVsCodeApi();
             const saveIconSvg = \`<svg viewBox="0 0 16 16"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zM4 1h8v4H4V1zm10 13H2V2h1v4h10V2h1v12zM5 10h6v3H5v-3z"/></svg>\`;
             const copyIconSvg = \`<svg viewBox="0 0 16 16"><path d="M4 4V1h11v11h-3v3H1V4h3zm10-2H5v9h9V2zM2 14h9V5H2v9z"/></svg>\`;
+            const minifyIconSvg = \`<svg viewBox="0 0 16 16"><path d="M9 9h5v1H9V9zM2 9h5v1H2V9zM5 4h6v1H5V4zM2 12h12v1H2v-1zM2 6h12v1H2V6z"/></svg>\`;
 
             let currentMatches = [];
             let activeMatchIndex = -1;
@@ -197,6 +199,7 @@ function getWebviewContent() {
                         <span class="type-badge" style="background:\${type === 'json' ? '#4ec9b0' : '#569cd6'}">\${type}</span>
                         <input type="text" class="name-input" placeholder="Name this entry...">
                         <div class="actions">
+                            <div class="btn-icon btn-minify" title="Copy Minified (Unbeautified)">\${minifyIconSvg}</div>
                             <div class="btn-icon btn-copy" title="Copy Raw">\${copyIconSvg}</div>
                             <div class="btn-icon btn-save" title="Save to PC">\${saveIconSvg}</div>
                         </div>
@@ -223,6 +226,31 @@ function getWebviewContent() {
                         setTimeout(() => {
                             // Restore original SVG
                             copyBtn.innerHTML = originalSvg;
+                            contentBox.classList.remove('flash-active');
+                        }, 600);
+                    });
+                };
+
+                const minifyBtn = entry.querySelector('.btn-minify');
+                minifyBtn.onclick = () => {
+                    let text = "";
+                    if (type === 'json') {
+                        // Stringify with 0 spaces to minify
+                        text = JSON.stringify(data); 
+                    } else {
+                        // For XML, remove newlines and extra spaces between tags
+                        text = rawString.replace(/>\s+</g, '><').trim();
+                    }
+
+                    navigator.clipboard.writeText(text).then(() => {
+                        const originalSvg = minifyBtn.innerHTML;
+                        minifyBtn.innerHTML = '<span style="color:#89d185; font-size:11px; font-weight:bold;">✓</span>';
+                        
+                        const contentBox = entry.querySelector('.content');
+                        contentBox.classList.add('flash-active');
+                        
+                        setTimeout(() => {
+                            minifyBtn.innerHTML = originalSvg;
                             contentBox.classList.remove('flash-active');
                         }, 600);
                     });

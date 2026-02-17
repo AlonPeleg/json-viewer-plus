@@ -13,12 +13,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     let disposable = vscode.commands.registerCommand('json-viewer-plus.open', () => {
         if (panel) {
-            panel.reveal(vscode.ViewColumn.One);
+            panel.reveal(vscode.ViewColumn.Beside);
         } else {
             panel = vscode.window.createWebviewPanel(
                 'jsonViewer',
                 'JSON/XML Viewer',
-                vscode.ViewColumn.One,
+                vscode.ViewColumn.Beside,
                 { enableScripts: true, retainContextWhenHidden: true }
             );
 

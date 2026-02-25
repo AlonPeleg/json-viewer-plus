@@ -117,8 +117,13 @@ function getWebviewContent() {
             .breadcrumb-bar { position: sticky; top: 0; z-index: 20; background: var(--vscode-editor-background); border-bottom: 1px solid var(--vscode-panel-border); padding: 4px 12px; font-size: 10px; font-family: monospace; color: var(--vscode-textLink-foreground); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
             .breadcrumb-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow: auto; line-height: 1.4; transition: background-color 0.2s; flex-grow: 1; }
+            
+            /* Highlighting Animations */
             @keyframes flash-pulse { 0% { background-color: rgba(55, 148, 239, 0.4); } 100% { background-color: transparent; } }
             .flash-active { animation: flash-pulse 0.6s ease-out; }
+            @keyframes diff-flash { 0% { background: var(--vscode-editor-findMatchHighlightBackground); } 100% { background: transparent; } }
+            .highlight-flash { animation: diff-flash 1.2s ease-out; }
+
             .json-node { margin: 0; position: relative; }
             .json-tree { padding-left: 18px; border-left: 1px solid #404040; margin-left: 6px; }
             .toggle { cursor: pointer; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; color: #808080; }
@@ -130,6 +135,7 @@ function getWebviewContent() {
             .key { color: #9cdcfe; } .string { color: #ce9178; } .number { color: #b5cea8; } .boolean, .null { color: #569cd6; }
             .match { background-color: rgba(151, 121, 0, 0.4); border-radius: 1px; }
             .match.current { background-color: #f7d75c; color: #000; border: 1px solid #ffaa00; font-weight: bold; }
+            
             #custom-context-menu { position: fixed; z-index: 10000; background: var(--vscode-menu-background); color: var(--vscode-menu-foreground); border: 1px solid var(--vscode-menu-border); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); border-radius: 5px; padding: 4px 0; display: none; min-width: 160px; font-size: 12px; user-select: none; }
             .ctx-item { padding: 6px 12px; cursor: pointer; display: flex; justify-content: space-between; }
             .ctx-item:hover { background: var(--vscode-menu-selectionBackground); color: var(--vscode-menu-selectionForeground); }
@@ -142,11 +148,21 @@ function getWebviewContent() {
             .compare-col { display: flex; flex-direction: column; gap: 4px; }
             .compare-header { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px; }
             .compare-label { font-size: 10px; text-transform: uppercase; opacity: 0.7; font-weight: bold; }
+            
             .diff-output { margin-top: 15px; border: 1px solid var(--vscode-panel-border); padding: 10px; background: var(--vscode-editor-background); font-family: monospace; font-size: 12px; border-radius: 4px; overflow: auto; }
-            .diff-line { padding: 2px 4px; border-radius: 2px; margin-bottom: 2px; }
-            .diff-added { background: rgba(78, 201, 176, 0.15); color: #4ec9b0; }
-            .diff-removed { background: rgba(244, 135, 113, 0.15); color: #f48771; }
-            .diff-changed { background: rgba(220, 220, 170, 0.15); color: #dcdcaa; }
+            .diff-line { padding: 4px 8px; border-radius: 2px; margin-bottom: 2px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background 0.1s; }
+            .diff-line:hover { background: var(--vscode-list-hoverBackground); }
+            .diff-icon { font-weight: bold; width: 12px; text-align: center; }
+            
+            /* List View Colors */
+            .diff-added { background: rgba(78, 201, 176, 0.1); color: #4ec9b0; border-left: 3px solid #4ec9b0; }
+            .diff-removed { background: rgba(244, 135, 113, 0.1); color: #f48771; border-left: 3px solid #f48771; }
+            .diff-changed { background: rgba(220, 220, 170, 0.1); color: #dcdcaa; border-left: 3px solid #dcdcaa; }
+
+            /* Side by Side Diff Logic */
+            .side-diff-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; display: none; }
+            .diff-mode-side .side-diff-container { display: grid; }
+            .diff-mode-side .diff-list-view { display: none; }
         </style>
     </head>
     <body>
@@ -184,7 +200,10 @@ function getWebviewContent() {
             <div id="compare-pane" class="tab-pane">
                 <div class="toolbar">
                     <h3 style="margin:0">Object Compare</h3>
-                    <button class="btn" onclick="runCompare()">Compare Now</button>
+                    <div class="btn-group">
+                        <button id="toggleDiffView" class="btn btn-secondary" onclick="toggleDiffMode()">View: List</button>
+                        <button class="btn" onclick="runCompare()">Compare Now</button>
+                    </div>
                 </div>
                 <div class="compare-grid">
                     <div class="compare-col">
@@ -208,7 +227,15 @@ function getWebviewContent() {
 
         <script>
             const vscode = acquireVsCodeApi();
-            
+            let isSideMode = false;
+
+            function toggleDiffMode() {
+                isSideMode = !isSideMode;
+                const btn = document.getElementById('toggleDiffView');
+                btn.textContent = isSideMode ? "View: Side-by-Side" : "View: List";
+                runCompare(); // Re-render
+            }
+
             function switchTab(paneId, element) {
                 document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
                 document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
@@ -529,17 +556,52 @@ function getWebviewContent() {
                     const diffs = findDiffs(left, right);
                     if (diffs.length === 0) {
                         results.innerHTML = "<div style='color:#89d185'>✅ Objects are identical.</div>";
-                    } else {
-                        const header = document.createElement('div');
-                        header.style.marginBottom = '10px';
-                        header.style.fontWeight = 'bold';
-                        header.textContent = \`Found \${diffs.length} difference(s):\`;
-                        results.appendChild(header);
+                        return;
+                    }
 
+                    const header = document.createElement('div');
+                    header.style.marginBottom = '10px';
+                    header.style.fontWeight = 'bold';
+                    header.textContent = \`Found \${diffs.length} difference(s):\`;
+                    results.appendChild(header);
+
+                    if (isSideMode) {
+                        const sideContainer = document.createElement('div');
+                        sideContainer.className = 'side-diff-container';
+                        sideContainer.style.display = 'grid';
+                        
+                        const leftCol = document.createElement('div');
+                        const rightCol = document.createElement('div');
+
+                        diffs.forEach(d => {
+                            const lDiv = document.createElement('div');
+                            const rDiv = document.createElement('div');
+                            lDiv.className = 'diff-line ' + (d.type === 'removed' || d.type === 'changed' ? 'diff-removed' : '');
+                            rDiv.className = 'diff-line ' + (d.type === 'added' || d.type === 'changed' ? 'diff-added' : '');
+                            
+                            lDiv.innerHTML = (d.type === 'added' ? '' : \`<span class="diff-icon">-</span> \${d.path}\`);
+                            rDiv.innerHTML = (d.type === 'removed' ? '' : \`<span class="diff-icon">+</span> \${d.path}\`);
+                            
+                            lDiv.onclick = () => scrollToDiffKey(d.key, 'compareLeft');
+                            rDiv.onclick = () => scrollToDiffKey(d.key, 'compareRight');
+
+                            leftCol.appendChild(lDiv);
+                            rightCol.appendChild(rDiv);
+                        });
+                        sideContainer.appendChild(leftCol);
+                        sideContainer.appendChild(rightCol);
+                        results.appendChild(sideContainer);
+                    } else {
                         diffs.forEach(d => {
                             const div = document.createElement('div');
                             div.className = 'diff-line diff-' + d.type;
-                            div.textContent = \`[\${d.type.toUpperCase()}] \${d.path}: \${JSON.stringify(d.val)}\`;
+                            const icon = d.type === 'added' ? '+' : (d.type === 'removed' ? '-' : 'Δ');
+                            div.innerHTML = \`<span class="diff-icon">\${icon}</span> <span><b>\${d.path}</b>: \${JSON.stringify(d.val)}</span>\`;
+                            
+                            div.onclick = () => {
+                                const targetId = (d.type === 'removed') ? 'compareLeft' : 'compareRight';
+                                scrollToDiffKey(d.key, targetId);
+                            };
                             results.appendChild(div);
                         });
                     }
@@ -550,17 +612,37 @@ function getWebviewContent() {
                 let diffs = [];
                 for (let key in obj1) {
                     const curPath = path + "." + key;
-                    if (!(key in obj2)) diffs.push({type: 'removed', path: curPath, val: obj1[key]});
+                    if (!(key in obj2)) diffs.push({type: 'removed', path: curPath, key: key, val: obj1[key]});
                     else if (typeof obj1[key] === 'object' && obj1[key] !== null && typeof obj2[key] === 'object' && obj2[key] !== null) {
                         diffs = diffs.concat(findDiffs(obj1[key], obj2[key], curPath));
                     } else if (obj1[key] !== obj2[key]) {
-                        diffs.push({type: 'changed', path: curPath, val: obj2[key]});
+                        diffs.push({type: 'changed', path: curPath, key: key, val: obj2[key]});
                     }
                 }
                 for (let key in obj2) {
-                    if (!(key in obj1)) diffs.push({type: 'added', path: path + "." + key, val: obj2[key]});
+                    if (!(key in obj1)) diffs.push({type: 'added', path: path + "." + key, key: key, val: obj2[key]});
                 }
                 return diffs;
+            }
+
+            function scrollToDiffKey(key, textareaId) {
+                const el = document.getElementById(textareaId);
+                const text = el.value;
+                const pattern = '"' + key + '"';
+                const index = text.indexOf(pattern);
+                
+                if (index !== -1) {
+                    el.focus();
+                    el.setSelectionRange(index, index + pattern.length);
+                    
+                    const lines = text.substr(0, index).split('\\n').length;
+                    const lineHeight = 18; 
+                    el.scrollTop = (lines - 4) * lineHeight;
+
+                    // Trigger the flash effect on the textarea
+                    el.classList.add('highlight-flash');
+                    setTimeout(() => el.classList.remove('highlight-flash'), 1200);
+                }
             }
         </script>
     </body>

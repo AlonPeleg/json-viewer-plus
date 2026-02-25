@@ -82,7 +82,7 @@ function getWebviewContent() {
             .tab-pane.active { display: block; }
 
             .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-            .btn-group { display: flex; gap: 6px; align-items: center; }
+            .btn-group { display: flex; gap: 10px; align-items: center; }
             .btn { border: none; padding: 4px 10px; cursor: pointer; border-radius: 2px; font-size: 12px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
             .btn-secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
             .btn:hover { filter: brightness(1.2); }
@@ -157,6 +157,15 @@ function getWebviewContent() {
             
             .diff-tag { font-size: 9px; font-weight: bold; text-transform: uppercase; opacity: 0.8; flex-shrink: 0; }
             .side-diff-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+            /* --- SYNC SCROLL UI --- */
+            .switch-container { display: flex; align-items: center; gap: 6px; font-size: 11px; opacity: 0.8; cursor: pointer; user-select: none; }
+            .switch { position: relative; display: inline-block; width: 28px; height: 16px; }
+            .switch input { opacity: 0; width: 0; height: 0; }
+            .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .2s; border-radius: 16px; }
+            .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 2px; bottom: 2px; background-color: white; transition: .2s; border-radius: 50%; }
+            input:checked + .slider { background-color: #007acc; }
+            input:checked + .slider:before { transform: translateX(12px); }
         </style>
     </head>
     <body>
@@ -195,6 +204,13 @@ function getWebviewContent() {
                 <div class="toolbar">
                     <h3 style="margin:0">Object Compare</h3>
                     <div class="btn-group">
+                        <label class="switch-container">
+                            <span>Sync Scroll</span>
+                            <div class="switch">
+                                <input type="checkbox" id="syncScrollToggle" checked>
+                                <span class="slider"></span>
+                            </div>
+                        </label>
                         <button id="toggleDiffView" class="btn btn-secondary" onclick="toggleDiffMode()">View: List</button>
                         <button class="btn" onclick="runCompare()">Compare Now</button>
                     </div>
@@ -222,6 +238,23 @@ function getWebviewContent() {
         <script>
             const vscode = acquireVsCodeApi();
             let isSideMode = false;
+
+            // --- SYNC SCROLL ENGINE ---
+            const leftScroll = document.getElementById('compareLeft');
+            const rightScroll = document.getElementById('compareRight');
+            let isSyncing = false;
+
+            function handleSyncScroll(source, target) {
+                if (!document.getElementById('syncScrollToggle').checked || isSyncing) return;
+                isSyncing = true;
+                const percentage = source.scrollTop / (source.scrollHeight - source.clientHeight);
+                target.scrollTop = percentage * (target.scrollHeight - target.clientHeight);
+                // Tiny timeout to prevent feedback loops
+                setTimeout(() => { isSyncing = false; }, 20);
+            }
+
+            leftScroll.addEventListener('scroll', () => handleSyncScroll(leftScroll, rightScroll));
+            rightScroll.addEventListener('scroll', () => handleSyncScroll(rightScroll, leftScroll));
 
             function toggleDiffMode() {
                 isSideMode = !isSideMode;
@@ -535,7 +568,6 @@ function getWebviewContent() {
                 } catch (e) { alert("Invalid JSON for beautifying"); }
             }
 
-            // --- IMPROVED DIFF ROW ---
             function createDiffRow(d) {
                 const div = document.createElement('div');
                 div.className = 'diff-line diff-' + d.type;
@@ -556,12 +588,9 @@ function getWebviewContent() {
                 div.appendChild(tag);
 
                 div.onclick = () => {
-                    if (d.type === 'removed') {
-                        scrollToDiffKey(d.key, 'compareLeft');
-                    } else if (d.type === 'added') {
-                        scrollToDiffKey(d.key, 'compareRight');
-                    } else if (d.type === 'changed') {
-                        // HIGHLIGHT BOTH ON CLICK FOR CHANGES
+                    if (d.type === 'removed') scrollToDiffKey(d.key, 'compareLeft');
+                    else if (d.type === 'added') scrollToDiffKey(d.key, 'compareRight');
+                    else if (d.type === 'changed') {
                         scrollToDiffKey(d.key, 'compareLeft');
                         scrollToDiffKey(d.key, 'compareRight');
                     }
@@ -614,10 +643,7 @@ function getWebviewContent() {
                         sideContainer.appendChild(rightCol);
                         results.appendChild(sideContainer);
                     } else {
-                        // List View: Back to 3 tags [ADDED][REMOVED][CHANGED]
-                        diffs.forEach(d => {
-                            results.appendChild(createDiffRow(d));
-                        });
+                        diffs.forEach(d => results.appendChild(createDiffRow(d)));
                     }
                 } catch (e) { results.innerHTML = "<div style='color:var(--vscode-errorForeground)'>❌ Error: " + e.message + "</div>"; }
             }

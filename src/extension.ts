@@ -70,7 +70,20 @@ function getWebviewContent() {
     <head>
         <meta charset="UTF-8">
         <style>
-            body { font-family: var(--vscode-editor-font-family); color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); padding: 15px; }
+            body { font-family: var(--vscode-editor-font-family); color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); padding: 0; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+            
+            /* Tabs Styling */
+            .tabs-header { display: flex; background: var(--vscode-editorGroupHeader-tabsBackground); border-bottom: 1px solid var(--vscode-panel-border); flex-shrink: 0; }
+            .tab-link { padding: 8px 16px; cursor: pointer; color: var(--vscode-tab-inactiveForeground); border-right: 1px solid var(--vscode-panel-border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+            .tab-link:hover { background: var(--vscode-tab-hoverBackground); }
+            .tab-link.active { background: var(--vscode-tab-activeBackground); color: var(--vscode-tab-activeForeground); border-bottom: 1px solid var(--vscode-tab-activeBorder); }
+            
+            /* Content Containers */
+            .tab-viewport { flex-grow: 1; overflow: hidden; position: relative; }
+            .tab-pane { display: none; height: 100%; width: 100%; overflow-y: auto; padding: 15px; box-sizing: border-box; }
+            .tab-pane.active { display: block; }
+
+            /* Existing Styles */
             .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
             .btn-group { display: flex; gap: 6px; align-items: center; }
             .btn { border: none; padding: 4px 10px; cursor: pointer; border-radius: 2px; font-size: 12px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
@@ -123,34 +136,72 @@ function getWebviewContent() {
             .ctx-divider { height: 1px; background: var(--vscode-menu-separatorBackground); margin: 4px 0; }
             .ctx-shortcut { opacity: 0.5; font-size: 11px; margin-left: 20px; }
             .xml-tag { color: #569cd6; } .xml-attr { color: #9cdcfe; } .xml-text { color: var(--vscode-foreground); }
+            
+            /* Compare Specific Styles */
+            .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; height: 250px; flex-shrink: 0; }
+            .diff-output { margin-top: 15px; border: 1px solid var(--vscode-panel-border); padding: 10px; background: var(--vscode-editor-background); font-family: monospace; font-size: 12px; border-radius: 4px; overflow: auto; }
+            .diff-line { padding: 2px 4px; border-radius: 2px; margin-bottom: 2px; }
+            .diff-added { background: rgba(78, 201, 176, 0.15); color: #4ec9b0; }
+            .diff-removed { background: rgba(244, 135, 113, 0.15); color: #f48771; }
         </style>
     </head>
     <body>
-        <div id="custom-context-menu">
-            <div class="ctx-item" onclick="execCommand('cut')">Cut <span class="ctx-shortcut">Ctrl+X</span></div>
-            <div class="ctx-item" onclick="execCommand('copy')">Copy <span class="ctx-shortcut">Ctrl+C</span></div>
-            <div class="ctx-item" onclick="execCommand('paste')">Paste <span class="ctx-shortcut">Ctrl+V</span></div>
-            <div class="ctx-divider"></div>
-            <div class="ctx-item" id="ctx-copy-path">Copy Path</div>
+        <div class="tabs-header">
+            <div class="tab-link active" onclick="switchTab('viewer-pane', this)">Viewer</div>
+            <div class="tab-link" onclick="switchTab('compare-pane', this)">Compare JSON</div>
         </div>
-        <div class="toolbar">
-            <h3 style="margin:0">JSON/XML Viewer</h3>
-            <div class="btn-group">
-                <button class="btn-global-icon" title="Collapse All" onclick="setAllCollapse(true)">
-                    <svg viewBox="0 0 16 16"><path d="M9 9H5V5h4v4zm5-7H2v12h12V2zM3 13V3h10v10H3z"/></svg>
-                </button>
-                <button class="btn-global-icon" title="Expand All" onclick="setAllCollapse(false)">
-                    <svg viewBox="0 0 16 16"><path d="M11 11H5V5h6v6zm3-9H2v12h12V2zM3 13V3h10v10H3z"/></svg>
-                </button>
-                <button class="btn" onclick="vscode.postMessage({command:'pinTab'})">Keep Open</button>
-                <button class="btn btn-secondary" onclick="document.getElementById('container').innerHTML=''">Clear All</button>
+
+        <div class="tab-viewport">
+            <div id="viewer-pane" class="tab-pane active">
+                <div id="custom-context-menu">
+                    <div class="ctx-item" onclick="execCommand('cut')">Cut <span class="ctx-shortcut">Ctrl+X</span></div>
+                    <div class="ctx-item" onclick="execCommand('copy')">Copy <span class="ctx-shortcut">Ctrl+C</span></div>
+                    <div class="ctx-item" onclick="execCommand('paste')">Paste <span class="ctx-shortcut">Ctrl+V</span></div>
+                    <div class="ctx-divider"></div>
+                    <div class="ctx-item" id="ctx-copy-path">Copy Path</div>
+                </div>
+                <div class="toolbar">
+                    <h3 style="margin:0">JSON/XML Viewer</h3>
+                    <div class="btn-group">
+                        <button class="btn-global-icon" title="Collapse All" onclick="setAllCollapse(true)">
+                            <svg viewBox="0 0 16 16"><path d="M9 9H5V5h4v4zm5-7H2v12h12V2zM3 13V3h10v10H3z"/></svg>
+                        </button>
+                        <button class="btn-global-icon" title="Expand All" onclick="setAllCollapse(false)">
+                            <svg viewBox="0 0 16 16"><path d="M11 11H5V5h6v6zm3-9H2v12h12V2zM3 13V3h10v10H3z"/></svg>
+                        </button>
+                        <button class="btn" onclick="vscode.postMessage({command:'pinTab'})">Keep Open</button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('container').innerHTML=''">Clear All</button>
+                    </div>
+                </div>
+                <textarea class="input-box" id="jsonInput" rows="3" placeholder="Paste JSON or XML here and press Enter..." autofocus></textarea>
+                <div id="container"></div>
+            </div>
+
+            <div id="compare-pane" class="tab-pane">
+                <div class="toolbar">
+                    <h3 style="margin:0">Object Compare</h3>
+                    <button class="btn" onclick="runCompare()">Compare Now</button>
+                </div>
+                <div class="compare-grid">
+                    <textarea id="compareLeft" class="input-box" placeholder="Original JSON..."></textarea>
+                    <textarea id="compareRight" class="input-box" placeholder="Modified JSON..."></textarea>
+                </div>
+                <div id="compareResults" class="diff-output">Paste two JSON objects above to see differences.</div>
             </div>
         </div>
-        <textarea class="input-box" id="jsonInput" rows="3" placeholder="Paste JSON or XML here and press Enter..." autofocus></textarea>
-        <div id="container"></div>
 
         <script>
             const vscode = acquireVsCodeApi();
+            
+            // Tab Switching Logic
+            function switchTab(paneId, element) {
+                document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+                document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+                document.getElementById(paneId).classList.add('active');
+                element.classList.add('active');
+            }
+
+            // Existing Icons
             const saveIconSvg = \`<svg viewBox="0 0 16 16"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zM4 1h8v4H4V1zm10 13H2V2h1v4h10V2h1v12zM5 10h6v3H5v-3z"/></svg>\`;
             const copyIconSvg = \`<svg viewBox="0 0 16 16"><path d="M4 4V1h11v11h-3v3H1V4h3zm10-2H5v9h9V2zM2 14h9V5H2v9z"/></svg>\`;
             const minifyIconSvg = \`<svg viewBox="0 0 16 16"><path d="M9 9h5v1H9V9zM2 9h5v1H2V9zM5 4h6v1H5V4zM2 12h12v1H2v-1zM2 6h12v1H2V6z"/></svg>\`;
@@ -159,6 +210,7 @@ function getWebviewContent() {
             let activeMatchIndex = -1;
             let lastRightClickPath = "";
 
+            // --- EXISTING VIEWER LOGIC ---
             function setAllCollapse(collapsed) {
                 document.querySelectorAll('.entry').forEach(entry => {
                     collapsed ? entry.classList.add('collapsed-entry') : entry.classList.remove('collapsed-entry');
@@ -212,19 +264,15 @@ function getWebviewContent() {
                     <div class="breadcrumb-bar"><span class="breadcrumb-text">root</span></div>
                     <div class="content"></div>\`;
 
-                    const copyBtn = entry.querySelector('.btn-copy'); // Capture the reference
-                    copyBtn.onclick = () => {
+                const copyBtn = entry.querySelector('.btn-copy');
+                copyBtn.onclick = () => {
                     const text = type === 'json' ? JSON.stringify(data, null, 4) : rawString;
                     navigator.clipboard.writeText(text).then(() => {
                         const originalSvg = copyBtn.innerHTML;
-                        // Change icon to checkmark
                         copyBtn.innerHTML = '<span style="color:#89d185; font-size:11px; font-weight:bold;">✓</span>';
-                        
                         const contentBox = entry.querySelector('.content');
                         contentBox.classList.add('flash-active');
-                        
                         setTimeout(() => {
-                            // Restore original SVG
                             copyBtn.innerHTML = originalSvg;
                             contentBox.classList.remove('flash-active');
                         }, 600);
@@ -233,22 +281,12 @@ function getWebviewContent() {
 
                 const minifyBtn = entry.querySelector('.btn-minify');
                 minifyBtn.onclick = () => {
-                    let text = "";
-                    if (type === 'json') {
-                        // Stringify with 0 spaces to minify
-                        text = JSON.stringify(data); 
-                    } else {
-                        // For XML, remove newlines and extra spaces between tags
-                        text = rawString.replace(/>\s+</g, '><').trim();
-                    }
-
+                    let text = type === 'json' ? JSON.stringify(data) : rawString.replace(/>\\s+</g, '><').trim();
                     navigator.clipboard.writeText(text).then(() => {
                         const originalSvg = minifyBtn.innerHTML;
                         minifyBtn.innerHTML = '<span style="color:#89d185; font-size:11px; font-weight:bold;">✓</span>';
-                        
                         const contentBox = entry.querySelector('.content');
                         contentBox.classList.add('flash-active');
-                        
                         setTimeout(() => {
                             minifyBtn.innerHTML = originalSvg;
                             contentBox.classList.remove('flash-active');
@@ -432,14 +470,10 @@ function getWebviewContent() {
                 const current = currentMatches[activeMatchIndex];
                 if (!current) return;
                 current.classList.add('current');
-
-                // AUTO-EXPAND LOGIC
                 const entry = current.closest('.entry');
                 if (entry.classList.contains('collapsed-entry')) entry.classList.remove('collapsed-entry');
-
                 let p = current.closest('.json-node.collapsed');
                 while(p) { p.classList.remove('collapsed'); p = p.parentElement.closest('.json-node.collapsed'); }
-
                 current.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 counter.textContent = (activeMatchIndex + 1) + "/" + currentMatches.length;
             }
@@ -458,6 +492,45 @@ function getWebviewContent() {
 
             document.getElementById('ctx-copy-path').onclick = () => navigator.clipboard.writeText(lastRightClickPath);
             function execCommand(cmd) { document.execCommand(cmd); }
+
+            // --- COMPARE LOGIC ---
+            function runCompare() {
+                const results = document.getElementById('compareResults');
+                try {
+                    const left = JSON.parse(document.getElementById('compareLeft').value);
+                    const right = JSON.parse(document.getElementById('compareRight').value);
+                    results.innerHTML = "";
+                    
+                    const diffs = findDiffs(left, right);
+                    if (diffs.length === 0) {
+                        results.innerHTML = "✅ Objects are identical.";
+                    } else {
+                        diffs.forEach(d => {
+                            const div = document.createElement('div');
+                            div.className = 'diff-line ' + (d.type === 'added' ? 'diff-added' : 'diff-removed');
+                            div.textContent = \`[\${d.type.toUpperCase()}] \${d.path}: \${JSON.stringify(d.val)}\`;
+                            results.appendChild(div);
+                        });
+                    }
+                } catch (e) { results.innerHTML = "❌ Error: " + e.message; }
+            }
+
+            function findDiffs(obj1, obj2, path = "root") {
+                let diffs = [];
+                for (let key in obj1) {
+                    const curPath = path + "." + key;
+                    if (!(key in obj2)) diffs.push({type: 'removed', path: curPath, val: obj1[key]});
+                    else if (typeof obj1[key] === 'object' && obj1[key] !== null) {
+                        diffs = diffs.concat(findDiffs(obj1[key], obj2[key], curPath));
+                    } else if (obj1[key] !== obj2[key]) {
+                        diffs.push({type: 'changed', path: curPath, val: obj2[key]});
+                    }
+                }
+                for (let key in obj2) {
+                    if (!(key in obj1)) diffs.push({type: 'added', path: path + "." + key, val: obj2[key]});
+                }
+                return diffs;
+            }
         </script>
     </body>
     </html>`;

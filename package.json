@@ -1,9 +1,9 @@
 {
   "name": "json-viewer-plus",
   "displayName": "json-viewer-plus",
-  "description": "a json viewer",
+  "description": "a json/xml viewer and compare",
   "publisher": "alonpe",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "engines": {
     "vscode": "^1.109.0"
   },
@@ -16,7 +16,7 @@
     "commands": [
       {
         "command": "json-viewer-plus.open",
-        "title": "Open JSON Viewer",
+        "title": "Open JSON/XML Viewer and Compare",
         "category": "JSON"
       }
     ]

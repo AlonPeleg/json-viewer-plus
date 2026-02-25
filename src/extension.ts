@@ -83,7 +83,7 @@ function getWebviewContent() {
             .tab-pane { display: none; height: 100%; width: 100%; overflow-y: auto; padding: 15px; box-sizing: border-box; }
             .tab-pane.active { display: block; }
 
-            /* Existing Styles */
+            /* Existing Styles from Baseline */
             .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
             .btn-group { display: flex; gap: 6px; align-items: center; }
             .btn { border: none; padding: 4px 10px; cursor: pointer; border-radius: 2px; font-size: 12px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
@@ -118,7 +118,6 @@ function getWebviewContent() {
             .breadcrumb-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .content { padding: 12px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; overflow: auto; line-height: 1.4; transition: background-color 0.2s; flex-grow: 1; }
             
-            /* Highlighting Animations */
             @keyframes flash-pulse { 0% { background-color: rgba(55, 148, 239, 0.4); } 100% { background-color: transparent; } }
             .flash-active { animation: flash-pulse 0.6s ease-out; }
             @keyframes diff-flash { 0% { background: var(--vscode-editor-findMatchHighlightBackground); } 100% { background: transparent; } }
@@ -143,26 +142,25 @@ function getWebviewContent() {
             .ctx-shortcut { opacity: 0.5; font-size: 11px; margin-left: 20px; }
             .xml-tag { color: #569cd6; } .xml-attr { color: #9cdcfe; } .xml-text { color: var(--vscode-foreground); }
             
-            /* Compare Specific Styles */
+            /* Compare Enhancements */
             .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; height: 300px; flex-shrink: 0; }
             .compare-col { display: flex; flex-direction: column; gap: 4px; }
             .compare-header { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px; }
             .compare-label { font-size: 10px; text-transform: uppercase; opacity: 0.7; font-weight: bold; }
             
             .diff-output { margin-top: 15px; border: 1px solid var(--vscode-panel-border); padding: 10px; background: var(--vscode-editor-background); font-family: monospace; font-size: 12px; border-radius: 4px; overflow: auto; }
-            .diff-line { padding: 4px 8px; border-radius: 2px; margin-bottom: 2px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background 0.1s; }
+            .diff-line { padding: 4px 8px; border-radius: 2px; margin-bottom: 2px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; transition: background 0.1s; }
             .diff-line:hover { background: var(--vscode-list-hoverBackground); }
-            .diff-icon { font-weight: bold; width: 12px; text-align: center; }
+            .diff-content-box { display: flex; align-items: center; gap: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .diff-icon { font-weight: bold; width: 12px; text-align: center; flex-shrink: 0; }
             
-            /* List View Colors */
             .diff-added { background: rgba(78, 201, 176, 0.1); color: #4ec9b0; border-left: 3px solid #4ec9b0; }
             .diff-removed { background: rgba(244, 135, 113, 0.1); color: #f48771; border-left: 3px solid #f48771; }
             .diff-changed { background: rgba(220, 220, 170, 0.1); color: #dcdcaa; border-left: 3px solid #dcdcaa; }
+            
+            .diff-tag { font-size: 9px; font-weight: bold; text-transform: uppercase; opacity: 0.8; flex-shrink: 0; }
 
-            /* Side by Side Diff Logic */
-            .side-diff-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; display: none; }
-            .diff-mode-side .side-diff-container { display: grid; }
-            .diff-mode-side .diff-list-view { display: none; }
+            .side-diff-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         </style>
     </head>
     <body>
@@ -233,7 +231,7 @@ function getWebviewContent() {
                 isSideMode = !isSideMode;
                 const btn = document.getElementById('toggleDiffView');
                 btn.textContent = isSideMode ? "View: Side-by-Side" : "View: List";
-                runCompare(); // Re-render
+                runCompare();
             }
 
             function switchTab(paneId, element) {
@@ -542,6 +540,32 @@ function getWebviewContent() {
                 } catch (e) { alert("Invalid JSON for beautifying"); }
             }
 
+            function createDiffRow(d, isLeftSide) {
+                const div = document.createElement('div');
+                div.className = 'diff-line diff-' + d.type;
+                
+                // Content with path and value
+                const contentBox = document.createElement('div');
+                contentBox.className = 'diff-content-box';
+                
+                const icon = d.type === 'added' ? '+' : (d.type === 'removed' ? '-' : 'Δ');
+                contentBox.innerHTML = \`<span class="diff-icon">\${icon}</span> <span><b>\${d.path}</b>: \${JSON.stringify(d.val)}</span>\`;
+                
+                // The Text Tag [REMOVED] [ADDED] [CHANGED] on far right
+                const tag = document.createElement('span');
+                tag.className = 'diff-tag';
+                tag.textContent = '[' + d.type.toUpperCase() + ']';
+                
+                div.appendChild(contentBox);
+                div.appendChild(tag);
+
+                div.onclick = () => {
+                    const targetId = isLeftSide ? 'compareLeft' : 'compareRight';
+                    scrollToDiffKey(d.key, targetId);
+                };
+                return div;
+            }
+
             function runCompare() {
                 const results = document.getElementById('compareResults');
                 try {
@@ -568,42 +592,28 @@ function getWebviewContent() {
                     if (isSideMode) {
                         const sideContainer = document.createElement('div');
                         sideContainer.className = 'side-diff-container';
-                        sideContainer.style.display = 'grid';
                         
                         const leftCol = document.createElement('div');
                         const rightCol = document.createElement('div');
 
                         diffs.forEach(d => {
-                            const lDiv = document.createElement('div');
-                            const rDiv = document.createElement('div');
-                            lDiv.className = 'diff-line ' + (d.type === 'removed' || d.type === 'changed' ? 'diff-removed' : '');
-                            rDiv.className = 'diff-line ' + (d.type === 'added' || d.type === 'changed' ? 'diff-added' : '');
-                            
-                            lDiv.innerHTML = (d.type === 'added' ? '' : \`<span class="diff-icon">-</span> \${d.path}\`);
-                            rDiv.innerHTML = (d.type === 'removed' ? '' : \`<span class="diff-icon">+</span> \${d.path}\`);
-                            
-                            lDiv.onclick = () => scrollToDiffKey(d.key, 'compareLeft');
-                            rDiv.onclick = () => scrollToDiffKey(d.key, 'compareRight');
-
-                            leftCol.appendChild(lDiv);
-                            rightCol.appendChild(rDiv);
+                            if (d.type === 'removed') {
+                                leftCol.appendChild(createDiffRow(d, true));
+                                rightCol.appendChild(document.createElement('div')).style.height = '24px'; 
+                            } else if (d.type === 'added') {
+                                leftCol.appendChild(document.createElement('div')).style.height = '24px';
+                                rightCol.appendChild(createDiffRow(d, false));
+                            } else if (d.type === 'changed') {
+                                // Changed items appear on both sides
+                                leftCol.appendChild(createDiffRow({...d, type: 'removed'}, true));
+                                rightCol.appendChild(createDiffRow({...d, type: 'added'}, false));
+                            }
                         });
                         sideContainer.appendChild(leftCol);
                         sideContainer.appendChild(rightCol);
                         results.appendChild(sideContainer);
                     } else {
-                        diffs.forEach(d => {
-                            const div = document.createElement('div');
-                            div.className = 'diff-line diff-' + d.type;
-                            const icon = d.type === 'added' ? '+' : (d.type === 'removed' ? '-' : 'Δ');
-                            div.innerHTML = \`<span class="diff-icon">\${icon}</span> <span><b>\${d.path}</b>: \${JSON.stringify(d.val)}</span>\`;
-                            
-                            div.onclick = () => {
-                                const targetId = (d.type === 'removed') ? 'compareLeft' : 'compareRight';
-                                scrollToDiffKey(d.key, targetId);
-                            };
-                            results.appendChild(div);
-                        });
+                        diffs.forEach(d => results.appendChild(createDiffRow(d, d.type === 'removed')));
                     }
                 } catch (e) { results.innerHTML = "<div style='color:var(--vscode-errorForeground)'>❌ Error: " + e.message + "</div>"; }
             }
@@ -634,12 +644,8 @@ function getWebviewContent() {
                 if (index !== -1) {
                     el.focus();
                     el.setSelectionRange(index, index + pattern.length);
-                    
                     const lines = text.substr(0, index).split('\\n').length;
-                    const lineHeight = 18; 
-                    el.scrollTop = (lines - 4) * lineHeight;
-
-                    // Trigger the flash effect on the textarea
+                    el.scrollTop = (lines - 4) * 18; 
                     el.classList.add('highlight-flash');
                     setTimeout(() => el.classList.remove('highlight-flash'), 1200);
                 }

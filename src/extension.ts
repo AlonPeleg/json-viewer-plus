@@ -138,17 +138,21 @@ function getWebviewContent() {
             .xml-tag { color: #569cd6; } .xml-attr { color: #9cdcfe; } .xml-text { color: var(--vscode-foreground); }
             
             /* Compare Specific Styles */
-            .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; height: 250px; flex-shrink: 0; }
+            .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; height: 300px; flex-shrink: 0; }
+            .compare-col { display: flex; flex-direction: column; gap: 4px; }
+            .compare-header { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px; }
+            .compare-label { font-size: 10px; text-transform: uppercase; opacity: 0.7; font-weight: bold; }
             .diff-output { margin-top: 15px; border: 1px solid var(--vscode-panel-border); padding: 10px; background: var(--vscode-editor-background); font-family: monospace; font-size: 12px; border-radius: 4px; overflow: auto; }
             .diff-line { padding: 2px 4px; border-radius: 2px; margin-bottom: 2px; }
             .diff-added { background: rgba(78, 201, 176, 0.15); color: #4ec9b0; }
             .diff-removed { background: rgba(244, 135, 113, 0.15); color: #f48771; }
+            .diff-changed { background: rgba(220, 220, 170, 0.15); color: #dcdcaa; }
         </style>
     </head>
     <body>
         <div class="tabs-header">
             <div class="tab-link active" onclick="switchTab('viewer-pane', this)">Viewer</div>
-            <div class="tab-link" onclick="switchTab('compare-pane', this)">Compare JSON</div>
+            <div class="tab-link" onclick="switchTab('compare-pane', this)">Compare</div>
         </div>
 
         <div class="tab-viewport">
@@ -183,17 +187,28 @@ function getWebviewContent() {
                     <button class="btn" onclick="runCompare()">Compare Now</button>
                 </div>
                 <div class="compare-grid">
-                    <textarea id="compareLeft" class="input-box" placeholder="Original JSON..."></textarea>
-                    <textarea id="compareRight" class="input-box" placeholder="Modified JSON..."></textarea>
+                    <div class="compare-col">
+                        <div class="compare-header">
+                            <span class="compare-label">Left Side</span>
+                            <button class="btn btn-secondary" style="font-size: 9px; padding: 2px 6px;" onclick="beautifyCompare('compareLeft')">Beautify</button>
+                        </div>
+                        <textarea id="compareLeft" class="input-box" style="height: 100%;" placeholder="Original JSON..."></textarea>
+                    </div>
+                    <div class="compare-col">
+                        <div class="compare-header">
+                            <span class="compare-label">Right Side</span>
+                            <button class="btn btn-secondary" style="font-size: 9px; padding: 2px 6px;" onclick="beautifyCompare('compareRight')">Beautify</button>
+                        </div>
+                        <textarea id="compareRight" class="input-box" style="height: 100%;" placeholder="Modified JSON..."></textarea>
+                    </div>
                 </div>
-                <div id="compareResults" class="diff-output">Paste two JSON objects above to see differences.</div>
+                <div id="compareResults" class="diff-output">Paste two JSON objects above and click Compare.</div>
             </div>
         </div>
 
         <script>
             const vscode = acquireVsCodeApi();
             
-            // Tab Switching Logic
             function switchTab(paneId, element) {
                 document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
                 document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
@@ -201,7 +216,6 @@ function getWebviewContent() {
                 element.classList.add('active');
             }
 
-            // Existing Icons
             const saveIconSvg = \`<svg viewBox="0 0 16 16"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zM4 1h8v4H4V1zm10 13H2V2h1v4h10V2h1v12zM5 10h6v3H5v-3z"/></svg>\`;
             const copyIconSvg = \`<svg viewBox="0 0 16 16"><path d="M4 4V1h11v11h-3v3H1V4h3zm10-2H5v9h9V2zM2 14h9V5H2v9z"/></svg>\`;
             const minifyIconSvg = \`<svg viewBox="0 0 16 16"><path d="M9 9h5v1H9V9zM2 9h5v1H2V9zM5 4h6v1H5V4zM2 12h12v1H2v-1zM2 6h12v1H2V6z"/></svg>\`;
@@ -210,7 +224,6 @@ function getWebviewContent() {
             let activeMatchIndex = -1;
             let lastRightClickPath = "";
 
-            // --- EXISTING VIEWER LOGIC ---
             function setAllCollapse(collapsed) {
                 document.querySelectorAll('.entry').forEach(entry => {
                     collapsed ? entry.classList.add('collapsed-entry') : entry.classList.remove('collapsed-entry');
@@ -494,25 +507,43 @@ function getWebviewContent() {
             function execCommand(cmd) { document.execCommand(cmd); }
 
             // --- COMPARE LOGIC ---
+            function beautifyCompare(id) {
+                const el = document.getElementById(id);
+                try {
+                    const obj = JSON.parse(el.value);
+                    el.value = JSON.stringify(obj, null, 4);
+                } catch (e) { alert("Invalid JSON for beautifying"); }
+            }
+
             function runCompare() {
                 const results = document.getElementById('compareResults');
                 try {
-                    const left = JSON.parse(document.getElementById('compareLeft').value);
-                    const right = JSON.parse(document.getElementById('compareRight').value);
+                    const lVal = document.getElementById('compareLeft').value;
+                    const rVal = document.getElementById('compareRight').value;
+                    if (!lVal || !rVal) throw new Error("Please provide JSON in both boxes.");
+
+                    const left = JSON.parse(lVal);
+                    const right = JSON.parse(rVal);
                     results.innerHTML = "";
                     
                     const diffs = findDiffs(left, right);
                     if (diffs.length === 0) {
-                        results.innerHTML = "✅ Objects are identical.";
+                        results.innerHTML = "<div style='color:#89d185'>✅ Objects are identical.</div>";
                     } else {
+                        const header = document.createElement('div');
+                        header.style.marginBottom = '10px';
+                        header.style.fontWeight = 'bold';
+                        header.textContent = \`Found \${diffs.length} difference(s):\`;
+                        results.appendChild(header);
+
                         diffs.forEach(d => {
                             const div = document.createElement('div');
-                            div.className = 'diff-line ' + (d.type === 'added' ? 'diff-added' : 'diff-removed');
+                            div.className = 'diff-line diff-' + d.type;
                             div.textContent = \`[\${d.type.toUpperCase()}] \${d.path}: \${JSON.stringify(d.val)}\`;
                             results.appendChild(div);
                         });
                     }
-                } catch (e) { results.innerHTML = "❌ Error: " + e.message; }
+                } catch (e) { results.innerHTML = "<div style='color:var(--vscode-errorForeground)'>❌ Error: " + e.message + "</div>"; }
             }
 
             function findDiffs(obj1, obj2, path = "root") {
@@ -520,7 +551,7 @@ function getWebviewContent() {
                 for (let key in obj1) {
                     const curPath = path + "." + key;
                     if (!(key in obj2)) diffs.push({type: 'removed', path: curPath, val: obj1[key]});
-                    else if (typeof obj1[key] === 'object' && obj1[key] !== null) {
+                    else if (typeof obj1[key] === 'object' && obj1[key] !== null && typeof obj2[key] === 'object' && obj2[key] !== null) {
                         diffs = diffs.concat(findDiffs(obj1[key], obj2[key], curPath));
                     } else if (obj1[key] !== obj2[key]) {
                         diffs.push({type: 'changed', path: curPath, val: obj2[key]});

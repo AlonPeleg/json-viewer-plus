@@ -72,18 +72,15 @@ function getWebviewContent() {
         <style>
             body { font-family: var(--vscode-editor-font-family); color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); padding: 0; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
             
-            /* Tabs Styling */
             .tabs-header { display: flex; background: var(--vscode-editorGroupHeader-tabsBackground); border-bottom: 1px solid var(--vscode-panel-border); flex-shrink: 0; }
             .tab-link { padding: 8px 16px; cursor: pointer; color: var(--vscode-tab-inactiveForeground); border-right: 1px solid var(--vscode-panel-border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
             .tab-link:hover { background: var(--vscode-tab-hoverBackground); }
             .tab-link.active { background: var(--vscode-tab-activeBackground); color: var(--vscode-tab-activeForeground); border-bottom: 1px solid var(--vscode-tab-activeBorder); }
             
-            /* Content Containers */
             .tab-viewport { flex-grow: 1; overflow: hidden; position: relative; }
             .tab-pane { display: none; height: 100%; width: 100%; overflow-y: auto; padding: 15px; box-sizing: border-box; }
             .tab-pane.active { display: block; }
 
-            /* Existing Styles from Baseline */
             .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
             .btn-group { display: flex; gap: 6px; align-items: center; }
             .btn { border: none; padding: 4px 10px; cursor: pointer; border-radius: 2px; font-size: 12px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
@@ -93,6 +90,7 @@ function getWebviewContent() {
             .btn-global-icon:hover { background: var(--vscode-toolbar-hoverBackground); opacity: 1; }
             .btn-global-icon svg { width: 16px; height: 16px; fill: var(--vscode-foreground); }
             .input-box { width: 100%; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 10px; margin-bottom: 15px; font-family: monospace; border-radius: 4px; box-sizing: border-box; outline: none; }
+            
             .entry { border: 1px solid var(--vscode-panel-border); margin-bottom: 15px; border-radius: 4px; overflow: hidden; background: var(--vscode-editor-background); display: flex; flex-direction: column; max-height: 80vh; }
             .header { background: var(--vscode-editor-lineHighlightBackground); padding: 4px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--vscode-panel-border); flex-shrink: 0; }
             .master-toggle { cursor: pointer; font-size: 10px; width: 14px; display: inline-flex; justify-content: center; opacity: 0.7; user-select: none; }
@@ -142,7 +140,6 @@ function getWebviewContent() {
             .ctx-shortcut { opacity: 0.5; font-size: 11px; margin-left: 20px; }
             .xml-tag { color: #569cd6; } .xml-attr { color: #9cdcfe; } .xml-text { color: var(--vscode-foreground); }
             
-            /* Compare Enhancements */
             .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; height: 300px; flex-shrink: 0; }
             .compare-col { display: flex; flex-direction: column; gap: 4px; }
             .compare-header { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px; }
@@ -159,7 +156,6 @@ function getWebviewContent() {
             .diff-changed { background: rgba(220, 220, 170, 0.1); color: #dcdcaa; border-left: 3px solid #dcdcaa; }
             
             .diff-tag { font-size: 9px; font-weight: bold; text-transform: uppercase; opacity: 0.8; flex-shrink: 0; }
-
             .side-diff-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         </style>
     </head>
@@ -531,7 +527,6 @@ function getWebviewContent() {
             document.getElementById('ctx-copy-path').onclick = () => navigator.clipboard.writeText(lastRightClickPath);
             function execCommand(cmd) { document.execCommand(cmd); }
 
-            // --- COMPARE LOGIC ---
             function beautifyCompare(id) {
                 const el = document.getElementById(id);
                 try {
@@ -540,18 +535,19 @@ function getWebviewContent() {
                 } catch (e) { alert("Invalid JSON for beautifying"); }
             }
 
-            function createDiffRow(d, isLeftSide) {
+            // --- IMPROVED DIFF ROW ---
+            function createDiffRow(d) {
                 const div = document.createElement('div');
                 div.className = 'diff-line diff-' + d.type;
                 
-                // Content with path and value
                 const contentBox = document.createElement('div');
                 contentBox.className = 'diff-content-box';
                 
-                const icon = d.type === 'added' ? '+' : (d.type === 'removed' ? '-' : 'Δ');
-                contentBox.innerHTML = \`<span class="diff-icon">\${icon}</span> <span><b>\${d.path}</b>: \${JSON.stringify(d.val)}</span>\`;
+                let icon = d.type === 'added' ? '+' : (d.type === 'removed' ? '-' : 'Δ');
+                let displayVal = d.type === 'changed' ? d.newVal : d.val;
+
+                contentBox.innerHTML = \`<span class="diff-icon">\${icon}</span> <span><b>\${d.path}</b>: \${JSON.stringify(displayVal)}</span>\`;
                 
-                // The Text Tag [REMOVED] [ADDED] [CHANGED] on far right
                 const tag = document.createElement('span');
                 tag.className = 'diff-tag';
                 tag.textContent = '[' + d.type.toUpperCase() + ']';
@@ -560,8 +556,15 @@ function getWebviewContent() {
                 div.appendChild(tag);
 
                 div.onclick = () => {
-                    const targetId = isLeftSide ? 'compareLeft' : 'compareRight';
-                    scrollToDiffKey(d.key, targetId);
+                    if (d.type === 'removed') {
+                        scrollToDiffKey(d.key, 'compareLeft');
+                    } else if (d.type === 'added') {
+                        scrollToDiffKey(d.key, 'compareRight');
+                    } else if (d.type === 'changed') {
+                        // HIGHLIGHT BOTH ON CLICK FOR CHANGES
+                        scrollToDiffKey(d.key, 'compareLeft');
+                        scrollToDiffKey(d.key, 'compareRight');
+                    }
                 };
                 return div;
             }
@@ -592,28 +595,29 @@ function getWebviewContent() {
                     if (isSideMode) {
                         const sideContainer = document.createElement('div');
                         sideContainer.className = 'side-diff-container';
-                        
                         const leftCol = document.createElement('div');
                         const rightCol = document.createElement('div');
 
                         diffs.forEach(d => {
                             if (d.type === 'removed') {
-                                leftCol.appendChild(createDiffRow(d, true));
+                                leftCol.appendChild(createDiffRow(d));
                                 rightCol.appendChild(document.createElement('div')).style.height = '24px'; 
                             } else if (d.type === 'added') {
                                 leftCol.appendChild(document.createElement('div')).style.height = '24px';
-                                rightCol.appendChild(createDiffRow(d, false));
+                                rightCol.appendChild(createDiffRow(d));
                             } else if (d.type === 'changed') {
-                                // Changed items appear on both sides
-                                leftCol.appendChild(createDiffRow({...d, type: 'removed'}, true));
-                                rightCol.appendChild(createDiffRow({...d, type: 'added'}, false));
+                                leftCol.appendChild(createDiffRow({type: 'removed', path: d.path, key: d.key, val: d.oldVal}));
+                                rightCol.appendChild(createDiffRow({type: 'added', path: d.path, key: d.key, val: d.newVal}));
                             }
                         });
                         sideContainer.appendChild(leftCol);
                         sideContainer.appendChild(rightCol);
                         results.appendChild(sideContainer);
                     } else {
-                        diffs.forEach(d => results.appendChild(createDiffRow(d, d.type === 'removed')));
+                        // List View: Back to 3 tags [ADDED][REMOVED][CHANGED]
+                        diffs.forEach(d => {
+                            results.appendChild(createDiffRow(d));
+                        });
                     }
                 } catch (e) { results.innerHTML = "<div style='color:var(--vscode-errorForeground)'>❌ Error: " + e.message + "</div>"; }
             }
@@ -622,15 +626,18 @@ function getWebviewContent() {
                 let diffs = [];
                 for (let key in obj1) {
                     const curPath = path + "." + key;
-                    if (!(key in obj2)) diffs.push({type: 'removed', path: curPath, key: key, val: obj1[key]});
-                    else if (typeof obj1[key] === 'object' && obj1[key] !== null && typeof obj2[key] === 'object' && obj2[key] !== null) {
+                    if (!(key in obj2)) {
+                        diffs.push({type: 'removed', path: curPath, key: key, val: obj1[key]});
+                    } else if (typeof obj1[key] === 'object' && obj1[key] !== null && typeof obj2[key] === 'object' && obj2[key] !== null) {
                         diffs = diffs.concat(findDiffs(obj1[key], obj2[key], curPath));
                     } else if (obj1[key] !== obj2[key]) {
-                        diffs.push({type: 'changed', path: curPath, key: key, val: obj2[key]});
+                        diffs.push({type: 'changed', path: curPath, key: key, oldVal: obj1[key], newVal: obj2[key]});
                     }
                 }
                 for (let key in obj2) {
-                    if (!(key in obj1)) diffs.push({type: 'added', path: path + "." + key, key: key, val: obj2[key]});
+                    if (!(key in obj1)) {
+                        diffs.push({type: 'added', path: path + "." + key, key: key, val: obj2[key]});
+                    }
                 }
                 return diffs;
             }

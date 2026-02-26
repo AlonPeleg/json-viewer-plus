@@ -107,6 +107,7 @@ function getWebviewContent() {
             .btn-save svg { width: 16px; height: 16px; fill: #3794ef; }
             .btn-copy svg { width: 15px; height: 15px; fill: #cccccc; }
             .btn-minify svg { width: 16px; height: 16px; fill: #dcdcaa; }
+            .btn-convert svg { width: 16px; height: 16px; }
             .search-container { display: flex; align-items: center; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 2px; width: 180px; }
             .search-inline { width: 100%; background: transparent; color: var(--vscode-input-foreground); border: none; font-size: 11px; padding: 2px 6px; outline: none; }
             .search-counter { font-size: 10px; padding: 0 5px; opacity: 0.7; font-family: monospace; }
@@ -158,7 +159,6 @@ function getWebviewContent() {
             .diff-tag { font-size: 9px; font-weight: bold; text-transform: uppercase; opacity: 0.8; flex-shrink: 0; }
             .side-diff-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-            /* --- SYNC SCROLL UI --- */
             .switch-container { display: flex; align-items: center; gap: 6px; font-size: 11px; opacity: 0.8; cursor: pointer; user-select: none; }
             .switch { position: relative; display: inline-block; width: 28px; height: 16px; }
             .switch input { opacity: 0; width: 0; height: 0; }
@@ -249,7 +249,6 @@ function getWebviewContent() {
                 isSyncing = true;
                 const percentage = source.scrollTop / (source.scrollHeight - source.clientHeight);
                 target.scrollTop = percentage * (target.scrollHeight - target.clientHeight);
-                // Tiny timeout to prevent feedback loops
                 setTimeout(() => { isSyncing = false; }, 20);
             }
 
@@ -273,6 +272,10 @@ function getWebviewContent() {
             const saveIconSvg = \`<svg viewBox="0 0 16 16"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zM4 1h8v4H4V1zm10 13H2V2h1v4h10V2h1v12zM5 10h6v3H5v-3z"/></svg>\`;
             const copyIconSvg = \`<svg viewBox="0 0 16 16"><path d="M4 4V1h11v11h-3v3H1V4h3zm10-2H5v9h9V2zM2 14h9V5H2v9z"/></svg>\`;
             const minifyIconSvg = \`<svg viewBox="0 0 16 16"><path d="M9 9h5v1H9V9zM2 9h5v1H2V9zM5 4h6v1H5V4zM2 12h12v1H2v-1zM2 6h12v1H2V6z"/></svg>\`;
+            
+            // --- CONVERSION ICONS ---
+            const jsonIconSvg = \`<svg viewBox="0 0 24 24" fill="none" stroke="#f1c40f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13c-.6 0-1 .4-1 1v.3c0 .4-.2.6-.5.7.3.1.5.3.5.7v.3c0 .6.4 1 1 1"></path><path d="M12 13c.6 0 1 .4 1 1v.3c0 .4.2.6.5.7-.3.1-.5.3-.5.7v.3c0 .6-.4 1-1 1"></path></svg>\`;
+            const xmlIconSvg = \`<svg viewBox="0 0 24 24" fill="none" stroke="#3498db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="m8 13-2 2 2 2"></path><path d="m12 17 2-2-2-2"></path></svg>\`;
 
             let currentMatches = [];
             let activeMatchIndex = -1;
@@ -306,6 +309,79 @@ function getWebviewContent() {
                 } catch (err) { alert('Invalid Format: ' + err.message); }
             }
 
+            // --- IMPROVED DATA CONVERTERS ---
+            function sanitizeXmlKey(key) {
+                return key.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/^(\\d)/, '_$1');
+            }
+
+            function jsonToXml(obj, rootName = "root") {
+                let xml = "";
+                if (rootName === "root") xml = '<?xml version="1.0" encoding="UTF-8"?>\\n';
+                
+                const safeRoot = sanitizeXmlKey(rootName);
+                xml += \`<\${safeRoot}>\`;
+
+                if (Array.isArray(obj)) {
+                    obj.forEach(item => {
+                        xml += jsonToXml(item, "item").replace('<?xml version="1.0" encoding="UTF-8"?>\\n', '');
+                    });
+                } else if (typeof obj === "object" && obj !== null) {
+                    for (let prop in obj) {
+                        if (obj.hasOwnProperty(prop)) {
+                            const safeProp = sanitizeXmlKey(prop);
+                            if (Array.isArray(obj[prop])) {
+                                obj[prop].forEach(item => {
+                                    xml += jsonToXml(item, safeProp).replace('<?xml version="1.0" encoding="UTF-8"?>\\n', '');
+                                });
+                            } else if (typeof obj[prop] === "object" && obj[prop] !== null) {
+                                xml += jsonToXml(obj[prop], safeProp).replace('<?xml version="1.0" encoding="UTF-8"?>\\n', '');
+                            } else {
+                                const val = String(obj[prop]).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                xml += \`<\${safeProp}>\${val}</\${safeProp}>\`;
+                            }
+                        }
+                    }
+                } else {
+                    xml += String(obj).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                }
+                
+                return xml + \`</\${safeRoot}>\`;
+            }
+
+            function xmlToJson(xml) {
+                let obj = {};
+                if (xml.nodeType === 1) { 
+                    if (xml.attributes.length > 0) {
+                        for (let j = 0; j < xml.attributes.length; j++) {
+                            const attr = xml.attributes.item(j);
+                            obj["@" + attr.nodeName] = attr.nodeValue;
+                        }
+                    }
+                } else if (xml.nodeType === 3) { obj = xml.nodeValue; }
+                if (xml.hasChildNodes()) {
+                    for (let i = 0; i < xml.childNodes.length; i++) {
+                        const item = xml.childNodes.item(i);
+                        const nodeName = item.nodeName;
+                        if (nodeName === "#text") {
+                            const val = item.nodeValue.trim();
+                            if (val) obj = val;
+                            continue;
+                        }
+                        if (typeof(obj[nodeName]) === "undefined") {
+                            obj[nodeName] = xmlToJson(item);
+                        } else {
+                            if (typeof(obj[nodeName].push) === "undefined") {
+                                const old = obj[nodeName];
+                                obj[nodeName] = [];
+                                obj[nodeName].push(old);
+                            }
+                            obj[nodeName].push(xmlToJson(item));
+                        }
+                    }
+                }
+                return obj;
+            }
+
             function addEntry(data, type, rawString) {
                 const entry = document.createElement('div');
                 entry.className = 'entry';
@@ -318,6 +394,7 @@ function getWebviewContent() {
                         <span class="type-badge" style="background:\${type === 'json' ? '#4ec9b0' : '#569cd6'}">\${type}</span>
                         <input type="text" class="name-input" placeholder="Name this entry...">
                         <div class="actions">
+                            <div class="btn-icon btn-convert" title="Copy as \${type === 'json' ? 'XML' : 'JSON'}">\${type === 'json' ? xmlIconSvg : jsonIconSvg}</div>
                             <div class="btn-icon btn-minify" title="Copy Minified (Unbeautified)">\${minifyIconSvg}</div>
                             <div class="btn-icon btn-copy" title="Copy Raw">\${copyIconSvg}</div>
                             <div class="btn-icon btn-save" title="Save to PC">\${saveIconSvg}</div>
@@ -330,6 +407,24 @@ function getWebviewContent() {
                     </div>
                     <div class="breadcrumb-bar"><span class="breadcrumb-text">root</span></div>
                     <div class="content"></div>\`;
+
+                const convertBtn = entry.querySelector('.btn-convert');
+                convertBtn.onclick = () => {
+                    let result = "";
+                    try {
+                        if (type === 'json') {
+                            result = jsonToXml(data);
+                        } else {
+                            const jsonObj = xmlToJson(data.documentElement);
+                            result = JSON.stringify(jsonObj, null, 4);
+                        }
+                        navigator.clipboard.writeText(result).then(() => {
+                            const originalSvg = convertBtn.innerHTML;
+                            convertBtn.innerHTML = '<span style="color:#89d185; font-size:11px; font-weight:bold;">✓</span>';
+                            setTimeout(() => convertBtn.innerHTML = originalSvg, 800);
+                        });
+                    } catch (e) { alert("Conversion Error: " + e.message); }
+                };
 
                 const copyBtn = entry.querySelector('.btn-copy');
                 copyBtn.onclick = () => {
@@ -571,22 +666,16 @@ function getWebviewContent() {
             function createDiffRow(d) {
                 const div = document.createElement('div');
                 div.className = 'diff-line diff-' + d.type;
-                
                 const contentBox = document.createElement('div');
                 contentBox.className = 'diff-content-box';
-                
                 let icon = d.type === 'added' ? '+' : (d.type === 'removed' ? '-' : 'Δ');
                 let displayVal = d.type === 'changed' ? d.newVal : d.val;
-
                 contentBox.innerHTML = \`<span class="diff-icon">\${icon}</span> <span><b>\${d.path}</b>: \${JSON.stringify(displayVal)}</span>\`;
-                
                 const tag = document.createElement('span');
                 tag.className = 'diff-tag';
                 tag.textContent = '[' + d.type.toUpperCase() + ']';
-                
                 div.appendChild(contentBox);
                 div.appendChild(tag);
-
                 div.onclick = () => {
                     if (d.type === 'removed') scrollToDiffKey(d.key, 'compareLeft');
                     else if (d.type === 'added') scrollToDiffKey(d.key, 'compareRight');
@@ -604,29 +693,24 @@ function getWebviewContent() {
                     const lVal = document.getElementById('compareLeft').value;
                     const rVal = document.getElementById('compareRight').value;
                     if (!lVal || !rVal) throw new Error("Please provide JSON in both boxes.");
-
                     const left = JSON.parse(lVal);
                     const right = JSON.parse(rVal);
                     results.innerHTML = "";
-                    
                     const diffs = findDiffs(left, right);
                     if (diffs.length === 0) {
                         results.innerHTML = "<div style='color:#89d185'>✅ Objects are identical.</div>";
                         return;
                     }
-
                     const header = document.createElement('div');
                     header.style.marginBottom = '10px';
                     header.style.fontWeight = 'bold';
                     header.textContent = \`Found \${diffs.length} difference(s):\`;
                     results.appendChild(header);
-
                     if (isSideMode) {
                         const sideContainer = document.createElement('div');
                         sideContainer.className = 'side-diff-container';
                         const leftCol = document.createElement('div');
                         const rightCol = document.createElement('div');
-
                         diffs.forEach(d => {
                             if (d.type === 'removed') {
                                 leftCol.appendChild(createDiffRow(d));
@@ -673,7 +757,6 @@ function getWebviewContent() {
                 const text = el.value;
                 const pattern = '"' + key + '"';
                 const index = text.indexOf(pattern);
-                
                 if (index !== -1) {
                     el.focus();
                     el.setSelectionRange(index, index + pattern.length);

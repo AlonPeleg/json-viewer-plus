@@ -274,8 +274,8 @@ function getWebviewContent() {
             const minifyIconSvg = \`<svg viewBox="0 0 16 16"><path d="M9 9h5v1H9V9zM2 9h5v1H2V9zM5 4h6v1H5V4zM2 12h12v1H2v-1zM2 6h12v1H2V6z"/></svg>\`;
             
             // --- CONVERSION ICONS ---
-            const jsonIconSvg = \`<svg viewBox="0 0 24 24" fill="none" stroke="#f1c40f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13c-.6 0-1 .4-1 1v.3c0 .4-.2.6-.5.7.3.1.5.3.5.7v.3c0 .6.4 1 1 1"></path><path d="M12 13c.6 0 1 .4 1 1v.3c0 .4.2.6.5.7-.3.1-.5.3-.5.7v.3c0 .6-.4 1-1 1"></path></svg>\`;
-            const xmlIconSvg = \`<svg viewBox="0 0 24 24" fill="none" stroke="#3498db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="m8 13-2 2 2 2"></path><path d="m12 17 2-2-2-2"></path></svg>\`;
+            const jsonIconSvg = \`<svg viewBox="0 0 24 24" fill="none" stroke="#f1c40f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3c-1.5 0-2 1-2 2v4.5c0 1.5-1 2-1 2.5 0 .5 1 1 1 2.5V19c0 1 1 2 2 2M16 3c1.5 0 2 1 2 2v4.5c0 1.5 1 2 1 2.5 0 .5-1 1-1 2.5V19c0 1-1 2-2 2" /></svg>\`;
+            const xmlIconSvg = \`<svg viewBox="0 0 24 24" fill="none" stroke="#3498db" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7 8-5 4 5 4M17 8l5 4-5 4" /></svg>\`;
 
             let currentMatches = [];
             let activeMatchIndex = -1;

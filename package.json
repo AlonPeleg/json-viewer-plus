@@ -3,7 +3,7 @@
   "displayName": "json-viewer-plus",
   "description": "a json/xml viewer and compare",
   "publisher": "alonpe",
-  "version": "0.0.10",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.109.0"
   },

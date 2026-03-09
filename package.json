@@ -38,9 +38,5 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/AlonPeleg/json-viewer-plus"
-},
-"bugs": {
-    "url": "https://github.com/AlonPeleg/json-viewer-plus/issues"
-  },
-  "homepage": "https://github.com/AlonPeleg/json-viewer-plus/blob/main/README.md"
+}
 }

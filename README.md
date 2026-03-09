@@ -68,4 +68,4 @@ This extension contributes the following:
 
 ---
 
-**Happy Debugging!** Made by [alonpe](https://github.com/alonpe).
+Made by [alonpe](https://github.com/alonpe).
